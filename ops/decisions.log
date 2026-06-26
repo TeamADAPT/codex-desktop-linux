@@ -1,5 +1,15 @@
 # Decisions Log
 
+## 2026-06-26 21:15:24 — Codex
+Decision recorded: launch the installed system wrapper `/usr/bin/codex-desktop` directly because the active shell has X11 desktop session variables and the package install receipt already verified the wrapper path.
+
+Files touched:
+- `/home/x/.cache/codex-desktop/manual-launch.stdout`
+- `/home/x/.cache/codex-desktop/manual-launch.stderr`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
 ## 2026-06-26 21:09:11 — Codex
 Decision recorded: close the install task after live package and updater service receipts succeeded.
 

@@ -1,5 +1,29 @@
 # Operations History
 
+## 2026-06-26 21:15:24 — Codex
+Launched installed Codex Desktop from `/usr/bin/codex-desktop`.
+
+Command run:
+
+```bash
+setsid /usr/bin/codex-desktop >"$HOME/.cache/codex-desktop/manual-launch.stdout" 2>"$HOME/.cache/codex-desktop/manual-launch.stderr" < /dev/null &
+```
+
+Receipts:
+
+- Launch command returned PID `55065`.
+- Running launcher process: `/bin/bash /opt/codex-desktop/start.sh`.
+- Running webview server: `python3 /opt/codex-desktop/.codex-linux/webview-server.py 5175 --bind 127.0.0.1`.
+- Running Electron process: `/opt/codex-desktop/electron`.
+- Launcher log shows local webview asset HTTP `200` responses and bundled plugin reconciliation completion.
+
+Files touched:
+- `/home/x/.cache/codex-desktop/manual-launch.stdout`
+- `/home/x/.cache/codex-desktop/manual-launch.stderr`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
 ## 2026-06-26 21:09:11 — Codex
 Completed native install task and moved its task directory from `ops/in_progress/` to `ops/completed/`.
 
