@@ -1,5 +1,22 @@
 # Decisions Log
 
+## 2026-06-26 21:09:11 — Codex
+Decision recorded: close the install task after live package and updater service receipts succeeded.
+
+Files touched:
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/install_codex_desktop_linux/task.md`
+- `ops/completed/install_codex_desktop_linux/completion_report.md`
+
+## 2026-06-26 21:08:50 — Codex
+Decision recorded: treat package metadata, installed root-owned paths, updater status JSON, and running `systemd --user` service state as the install receipt because they come from the live installed system.
+
+Files touched:
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/install_codex_desktop_linux/completion_report.md`
+
 ## 2026-06-26 21:03:13 — Codex
 Decision recorded: use `make bootstrap-native` on Ubuntu 24.04 because README and Makefile define it as the supported path for dependency install, fresh app build, native `.deb` packaging, and system installation.
 
@@ -8,4 +25,3 @@ Files touched:
 - `ops/operations_history.md`
 - `ops/decisions.log`
 - `ops/in_progress/install_codex_desktop_linux/task.md`
-

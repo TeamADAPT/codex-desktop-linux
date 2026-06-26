@@ -1,5 +1,46 @@
 # Operations History
 
+## 2026-06-26 21:09:11 — Codex
+Completed native install task and moved its task directory from `ops/in_progress/` to `ops/completed/`.
+
+Files touched:
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/install_codex_desktop_linux/task.md`
+- `ops/completed/install_codex_desktop_linux/completion_report.md`
+
+## 2026-06-26 21:08:50 — Codex
+Installed Codex Desktop Linux through the native Ubuntu `.deb` bootstrap path and verified the live installed system.
+
+Command run:
+
+```bash
+make bootstrap-native
+```
+
+Receipts:
+
+- `dpkg-query`: `codex-desktop 2026.06.26.210745 amd64 install ok installed`
+- Installed launcher: `/usr/bin/codex-desktop`
+- Installed updater: `/usr/bin/codex-update-manager`
+- Installed app root: `/opt/codex-desktop`
+- systemd user service: `codex-update-manager.service` loaded, enabled, and active/running
+- `codex-update-manager status --json`: status `idle`, installed version `2026.06.26.210745`, CLI status `up_to_date`
+
+Files touched:
+- `Codex.dmg`
+- `Codex.dmg.metadata`
+- `codex-app/`
+- `dist/`
+- `target/`
+- `/opt/codex-desktop`
+- `/usr/bin/codex-desktop`
+- `/usr/bin/codex-update-manager`
+- `/usr/lib/systemd/user/codex-update-manager.service`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/install_codex_desktop_linux/completion_report.md`
+
 ## 2026-06-26 21:03:13 — Codex
 Initialized ops structure and install task tracking for native Codex Desktop Linux install.
 
@@ -8,4 +49,3 @@ Files touched:
 - `ops/operations_history.md`
 - `ops/decisions.log`
 - `ops/in_progress/install_codex_desktop_linux/task.md`
-
