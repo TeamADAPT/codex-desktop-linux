@@ -1,5 +1,34 @@
 # Operations History
 
+## 2026-06-26 21:23:48 — Codex
+Repaired the local Codex Desktop thread catalog after the installed app launched with current/history chats missing.
+
+Actions performed:
+
+- Stopped only the running Codex Desktop app processes under `/opt/codex-desktop`.
+- Backed up the Desktop catalog database to `/home/x/.codex/sqlite/backups/codex-desktop-catalog-20260626212215/`.
+- Rebuilt `local_thread_catalog` in `/home/x/.codex/sqlite/codex-dev.db` from active rows in `/home/x/.codex/state_5.sqlite`.
+- Set `local_thread_catalog_sync_state.initial_build_complete=1`.
+- Relaunched `/usr/bin/codex-desktop`.
+
+Receipts:
+
+- Source state DB active threads: `13`.
+- Rebuilt Desktop catalog visible local threads: `13`.
+- Catalog revision advanced to `1`.
+- Running app log shows successful `thread/list` responses after relaunch.
+- Running app processes include `/bin/bash /opt/codex-desktop/start.sh`, `python3 /opt/codex-desktop/.codex-linux/webview-server.py 5175 --bind 127.0.0.1`, and `/opt/codex-desktop/electron`.
+
+Files touched:
+- `/home/x/.codex/sqlite/codex-dev.db`
+- `/home/x/.codex/sqlite/backups/codex-desktop-catalog-20260626212215/codex-dev.db`
+- `/home/x/.cache/codex-desktop/manual-launch.stdout`
+- `/home/x/.cache/codex-desktop/manual-launch.stderr`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/repair_desktop_thread_catalog/completion_report.md`
+
 ## 2026-06-26 21:15:24 — Codex
 Launched installed Codex Desktop from `/usr/bin/codex-desktop`.
 

@@ -1,5 +1,20 @@
 # Decisions Log
 
+## 2026-06-26 21:23:48 — Codex
+Decision recorded: repair the Desktop-facing `local_thread_catalog` directly from `/home/x/.codex/state_5.sqlite` because live inspection showed the CLI/state database had `13` active threads while `/home/x/.codex/sqlite/codex-dev.db` had `0` visible catalog rows.
+
+Decision recorded: back up `/home/x/.codex/sqlite/codex-dev.db` before modification and relaunch the installed app wrapper afterward so verification comes from the running system.
+
+Files touched:
+- `/home/x/.codex/sqlite/codex-dev.db`
+- `/home/x/.codex/sqlite/backups/codex-desktop-catalog-20260626212215/codex-dev.db`
+- `/home/x/.cache/codex-desktop/manual-launch.stdout`
+- `/home/x/.cache/codex-desktop/manual-launch.stderr`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/repair_desktop_thread_catalog/completion_report.md`
+
 ## 2026-06-26 21:15:24 — Codex
 Decision recorded: launch the installed system wrapper `/usr/bin/codex-desktop` directly because the active shell has X11 desktop session variables and the package install receipt already verified the wrapper path.
 
