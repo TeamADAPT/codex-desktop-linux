@@ -1,5 +1,19 @@
 # Decisions Log
 
+## 2026-06-26 22:34:01 — Codex
+Decision recorded: do not perform another catalog database repair because direct `codex app-server --stdio` returned `13` local threads and Desktop global Search already displayed the restored history.
+
+Decision recorded: repair the remaining visibility issue through Desktop project-root state because the sidebar `Chats / No chats` section was projectless while history was available under project scope/search.
+
+Files touched:
+- `/home/x/.config/Codex/`
+- `/home/x/.cache/codex-desktop/manual-launch.stdout`
+- `/home/x/.cache/codex-desktop/manual-launch.stderr`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/repair_desktop_project_scope/completion_report.md`
+
 ## 2026-06-26 21:23:48 — Codex
 Decision recorded: repair the Desktop-facing `local_thread_catalog` directly from `/home/x/.codex/state_5.sqlite` because live inspection showed the CLI/state database had `13` active threads while `/home/x/.codex/sqlite/codex-dev.db` had `0` visible catalog rows.
 

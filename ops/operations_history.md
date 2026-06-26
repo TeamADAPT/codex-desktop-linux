@@ -1,5 +1,32 @@
 # Operations History
 
+## 2026-06-26 22:34:01 — Codex
+Repaired the remaining Codex Desktop chat visibility issue by registering the restored local history under Desktop project roots instead of modifying the thread database again.
+
+Actions performed:
+
+- Inspected the live Electron UI through a temporary local CDP port on the running `/usr/bin/codex-desktop` launch.
+- Verified direct `codex app-server --stdio` `thread/list` returned `13` restored local threads.
+- Verified Desktop global Search could see restored history while the sidebar `Chats / No chats` section was projectless.
+- Used the app bridge message `electron-update-workspace-root-options` to register `/adapt/projects/rusty_oai/codex-desktop-linux` as a Desktop project root.
+- Verified the live UI showed the `Projects` section with `codex-desktop-linux`; user confirmed the chats are visible and working.
+
+Receipts:
+
+- Direct app-server `thread/list`: `13` local threads.
+- Live Desktop UI: global Search displayed restored history results.
+- Live Desktop UI: project list displayed `codex-desktop-linux`.
+- User confirmation: `perfect..it works`.
+
+Files touched:
+- `/home/x/.config/Codex/`
+- `/home/x/.cache/codex-desktop/manual-launch.stdout`
+- `/home/x/.cache/codex-desktop/manual-launch.stderr`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/repair_desktop_project_scope/completion_report.md`
+
 ## 2026-06-26 21:23:48 — Codex
 Repaired the local Codex Desktop thread catalog after the installed app launched with current/history chats missing.
 
