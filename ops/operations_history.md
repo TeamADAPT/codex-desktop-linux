@@ -1,5 +1,27 @@
 # Operations History
 
+## 2026-07-01 06:40:13 — Codex
+Reverified the Codex Desktop Linux install from the live system and reconciled the local branch with `origin/working`.
+
+Actions performed:
+
+- Fetched `origin/working` after the initial push was rejected as non-fast-forward.
+- Inspected the remote task history and found the native install task already completed under `ops/completed/install_codex_desktop_linux/`.
+- Skipped the duplicate local planning commit and realigned local `working` to track `origin/working`; no force push was used.
+- Verified Ubuntu 24.04 live package state with `dpkg-query`.
+- Verified installed root-owned paths under `/opt/codex-desktop`, `/usr/bin/codex-desktop`, `/usr/bin/codex-update-manager`, and `/usr/lib/systemd/user/codex-update-manager.service`.
+- Verified updater daemon process `/usr/bin/codex-update-manager daemon` is running.
+- Verified the user systemd unit is enabled by `~/.config/systemd/user/default.target.wants/codex-update-manager.service`.
+- Verified `codex-update-manager status --json` reports installed version `2026.06.26.210745` and Codex CLI status `up_to_date`.
+- Noted a pending updater-built package `2026.06.27.030913+91c7139d` whose privileged install was previously dismissed.
+
+Files touched:
+- `.git/config`
+- `.git/refs/heads/working`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/install_codex_desktop_linux/completion_report.md`
+
 ## 2026-07-01 03:06:06 — Codex
 Created the native Rust host plus wasm64 components refactor plan for repository review.
 

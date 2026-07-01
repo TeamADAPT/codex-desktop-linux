@@ -1,5 +1,19 @@
 # Decisions Log
 
+## 2026-07-01 06:40:13 — Codex
+Decision recorded: do not run a fresh native reinstall in this continuation because current live receipts prove Codex Desktop Linux is already installed.
+
+Decision recorded: do not apply the pending updater-built package automatically because privileged install was previously dismissed and the active objective is installation, not forced update.
+
+Decision recorded: realign local `working` to `origin/working` and avoid force-pushing the temporary rebased branch stack.
+
+Files touched:
+- `.git/config`
+- `.git/refs/heads/working`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+- `ops/completed/install_codex_desktop_linux/completion_report.md`
+
 ## 2026-07-01 03:06:06 — Codex
 Decision recorded: use a native Rust host plus wasm64 components as the refactor direction because Rust should own Linux host authority while wasm64 should own deterministic, typed build and feature logic.
 
