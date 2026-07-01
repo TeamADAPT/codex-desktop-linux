@@ -1,5 +1,20 @@
 # Operations History
 
+## 2026-07-01 03:06:06 — Codex
+Created the native Rust host plus wasm64 components refactor plan for repository review.
+
+Actions performed:
+
+- Added a strategic plan at `plans/rust-wasm64-components.md`.
+- Updated `implementation_plan.md` with the tactical phase plan and approval gate.
+- Left implementation code unchanged pending user approval.
+
+Files touched:
+- `plans/rust-wasm64-components.md`
+- `implementation_plan.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
 ## 2026-06-26 22:34:01 — Codex
 Repaired the remaining Codex Desktop chat visibility issue by registering the restored local history under Desktop project roots instead of modifying the thread database again.
 

@@ -1,5 +1,18 @@
 # Decisions Log
 
+## 2026-07-01 03:06:06 — Codex
+Decision recorded: use a native Rust host plus wasm64 components as the refactor direction because Rust should own Linux host authority while wasm64 should own deterministic, typed build and feature logic.
+
+Decision recorded: keep `install.sh`, package shell entrypoints, and Node patching paths as compatibility wrappers until live install/package receipts prove parity.
+
+Decision recorded: require explicit user approval before Phase 1 implementation because repository rules require an approved plan before code changes.
+
+Files touched:
+- `plans/rust-wasm64-components.md`
+- `implementation_plan.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
 ## 2026-06-26 22:34:01 — Codex
 Decision recorded: do not perform another catalog database repair because direct `codex app-server --stdio` returned `13` local threads and Desktop global Search already displayed the restored history.
 
