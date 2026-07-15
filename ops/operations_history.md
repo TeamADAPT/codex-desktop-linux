@@ -1,5 +1,25 @@
 # Operations History
 
+## 2026-07-15 02:32:20 — Codex
+Fast-forwarded the TeamADAPT fork's remote mainline to the current upstream mainline.
+
+Actions performed:
+
+- Refetched `upstream/main` and `origin/main` immediately before the update.
+- Revalidated that `origin/main` was an ancestor of `upstream/main`.
+- Pushed `upstream/main` to `origin/main` as a normal fast-forward from `fa5baa3` to `02c1646`; no force option was used.
+- Refetched `origin/main` after the push.
+- Verified direct remote reads return `02c16466691c6082113065bc621ce32d4c105c9d` for both `upstream/main` and `origin/main`.
+
+Files touched:
+- `.git/FETCH_HEAD`
+- `.git/refs/remotes/origin/main`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:31:53 — Codex
 Fetched both remotes and passed the required non-force ancestry gate for the mainline synchronization.
 

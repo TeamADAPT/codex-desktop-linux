@@ -1,5 +1,17 @@
 # Decisions Log
 
+## 2026-07-15 02:32:20 — Codex
+Decision recorded: update the TeamADAPT fork with a regular Git fast-forward from `upstream/main` to `origin/main`, then verify both server-side refs directly before changing local `main`.
+
+Files touched:
+- `.git/FETCH_HEAD`
+- `.git/refs/remotes/origin/main`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:31:53 — Codex
 Decision recorded: use freshly fetched and directly confirmed `upstream/main` commit `02c1646` as the synchronization source because upstream advanced after the planning snapshot.
 
