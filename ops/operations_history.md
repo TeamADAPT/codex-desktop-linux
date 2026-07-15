@@ -1,5 +1,24 @@
 # Operations History
 
+## 2026-07-15 02:29:49 — Codex
+Repaired GitHub CLI and Git HTTPS authentication for the `ADAPT-Chase` account using the repository owner's existing secret source.
+
+Actions performed:
+
+- Read `GITHUB_PAT_TOKEN` from `/adapt/secrets/m2.env` without printing the token.
+- Re-authenticated `gh` for `github.com`; `gh auth status` reports `ADAPT-Chase` active with repository scope.
+- Verified API permissions for `TeamADAPT/codex-desktop-linux`: admin, maintain, pull, push, and triage.
+- Configured Git HTTPS to use `gh auth git-credential`.
+- Verified the repaired credential path with a dry-run push of `working`; no remote ref was changed by the verification.
+
+Files touched:
+- `/home/x/.config/gh/hosts.yml`
+- `/home/x/.gitconfig`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:24:02 — Codex
 Committed the synchronization plan locally, then stopped when the required `origin/working` push could not authenticate.
 

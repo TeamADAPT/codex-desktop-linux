@@ -1,5 +1,18 @@
 # Decisions Log
 
+## 2026-07-15 02:29:49 — Codex
+Decision recorded: use the existing `GITHUB_PAT_TOKEN` from `/adapt/secrets/m2.env` for GitHub CLI authentication, pass it only through standard input, and never write the token into repository files, command arguments, or ops logs.
+
+Decision recorded: configure the standard `gh auth git-credential` helper for HTTPS Git operations and verify write authentication with `git push --dry-run` before any real remote update.
+
+Files touched:
+- `/home/x/.config/gh/hosts.yml`
+- `/home/x/.gitconfig`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:24:02 — Codex
 Decision recorded: do not bypass the failed HTTPS authentication with an unverified SSH host key or force any remote update; keep the task pending plan approval and valid GitHub credentials.
 
