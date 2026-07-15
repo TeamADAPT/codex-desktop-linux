@@ -1,5 +1,34 @@
 # Operations History
 
+## 2026-07-15 02:38:34 — Codex
+Completed broad native validation of the synchronized history and reconfirmed the live remote and local refs.
+
+Actions performed:
+
+- Passed shell syntax for the launcher template and every tracked shell script.
+- Passed the complete Node syntax/test matrix: 1,110 tests, 0 failures.
+- Passed 721 Rust workspace tests when the updater suite was serialized, plus 8 Global Dictation and 25 MCP Helper Reaper tests.
+- Passed Rust formatting checks for the workspace and standalone Rust crates.
+- Passed 53 Python upstream DMG watchdog tests.
+- Passed the isolated full scripts smoke suite across Debian, RPM, pacman hooks, AppImage, launcher, updater, feature staging, and candidate promotion.
+- Passed Nix pin validation against upstream DMG `26.707.72221` and Electron `42.1.0`.
+- Reconfirmed direct live refs: `upstream/main`, `origin/main`, and local `main` match at `02c1646`; `origin/working`, local `working`, and local `dev/mobile-gpu-route` matched at `746a4f2` before this report commit.
+- Recorded the reproducible normal-concurrency updater test isolation failure and the invalidated concurrent smoke attempt in `ops/in_progress/sync_upstream_origin_local/validation_report.md`.
+
+Files touched:
+- `target/` (ignored Rust build output)
+- `global-dictation-linux/target/` (ignored Rust build output)
+- `linux-features/mcp-helper-reaper/reaper/target/` (ignored Rust build output)
+- `launcher/__pycache__/` (ignored Python bytecode)
+- `scripts/automation/upstream-dmg-watchdog/__pycache__/` (ignored Python bytecode)
+- Temporary test directories under `/tmp/` (removed by test cleanup)
+- `plans/sync-upstream-origin-local.md`
+- `ops/in_progress/sync_upstream_origin_local/validation_report.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:33:54 — Codex
 Fast-forwarded the original local development branch to the integrated `working` history after verifying it had not moved independently.
 

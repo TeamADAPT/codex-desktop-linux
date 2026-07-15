@@ -46,6 +46,12 @@ Success receipts:
 
 Execution progress:
 
+- 2026-07-15 02:38:34 MST: completed broad native validation and reconfirmed
+  the live remote refs. Shell, Node (1,110 tests), isolated package smoke,
+  Rust formatting, Python watchdog (53 tests), Nix pins, and 754 Rust tests
+  passed. Normal-concurrency updater testing reproducibly exposes one upstream
+  test-isolation failure that passes alone and in the complete serial suite;
+  details are recorded in the task validation report.
 - 2026-07-15 02:33:54 MST: verified local `dev/mobile-gpu-route` had not
   moved from its recorded `6bcbc63` starting point and fast-forwarded it to
   the integrated `working` history.

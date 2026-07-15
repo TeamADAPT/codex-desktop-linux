@@ -1,5 +1,26 @@
 # Decisions Log
 
+## 2026-07-15 02:38:34 — Codex
+Decision recorded: treat the normal-concurrency updater failure as a reported upstream test-isolation defect because it reproduced in two parallel suite runs but passed alone and in the complete serial 261-test suite; do not modify unrelated upstream source during a synchronization task.
+
+Decision recorded: discard the first smoke result as invalid because a concurrent standalone Cargo build was mutating the ignored feature `target/` tree being copied by packaging; use the clean isolated smoke pass as the authoritative receipt.
+
+Decision recorded: exclude containerized CI under the repository's no-Docker operational rule and use broad native shell, Node, Rust, Python, package-smoke, and Nix validation instead.
+
+Files touched:
+- `target/` (ignored Rust build output)
+- `global-dictation-linux/target/` (ignored Rust build output)
+- `linux-features/mcp-helper-reaper/reaper/target/` (ignored Rust build output)
+- `launcher/__pycache__/` (ignored Python bytecode)
+- `scripts/automation/upstream-dmg-watchdog/__pycache__/` (ignored Python bytecode)
+- Temporary test directories under `/tmp/` (removed by test cleanup)
+- `plans/sync-upstream-origin-local.md`
+- `ops/in_progress/sync_upstream_origin_local/validation_report.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:33:54 — Codex
 Decision recorded: fast-forward local `dev/mobile-gpu-route` only after its commit matched the plan's recorded starting point and it remained an ancestor of `working`; do not publish a new remote branch because none existed before synchronization.
 
