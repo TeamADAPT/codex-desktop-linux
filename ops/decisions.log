@@ -1,5 +1,17 @@
 # Decisions Log
 
+## 2026-07-15 02:32:44 — Codex
+Decision recorded: fast-forward the local `main` ref directly while remaining on `working`, preserving the dedicated execution branch and avoiding unnecessary worktree churn before integration.
+
+Files touched:
+- `.git/refs/heads/main`
+- `.git/config`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:32:20 — Codex
 Decision recorded: update the TeamADAPT fork with a regular Git fast-forward from `upstream/main` to `origin/main`, then verify both server-side refs directly before changing local `main`.
 
