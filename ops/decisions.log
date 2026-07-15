@@ -1,5 +1,17 @@
 # Decisions Log
 
+## 2026-07-15 02:39:27 — Codex
+Decision recorded: close the synchronization task because the requested upstream-to-origin-to-local ref chain matches exactly, TeamADAPT history remains contained by `working`, broad native validation is recorded, and the only residual is an explicitly documented upstream test-concurrency defect.
+
+Files touched:
+- `plans/sync-upstream-origin-local.md`
+- `ops/in_progress/sync_upstream_origin_local/`
+- `ops/completed/sync_upstream_origin_local/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:38:34 — Codex
 Decision recorded: treat the normal-concurrency updater failure as a reported upstream test-isolation defect because it reproduced in two parallel suite runs but passed alone and in the complete serial 261-test suite; do not modify unrelated upstream source during a synchronization task.
 
