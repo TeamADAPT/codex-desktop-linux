@@ -1,5 +1,21 @@
 # Decisions Log
 
+## 2026-07-15 02:22:59 — Codex
+Decision recorded: synchronize in the requested `upstream` to `origin` to local order, and require a normal fast-forward for `origin/main`; do not force-push or rewrite published history.
+
+Decision recorded: integrate synchronized `origin/main` into `working` with a merge so existing TeamADAPT commits remain reachable, then update the original local development branch only if it has not moved independently.
+
+Decision recorded: hold all source-ref movement and source changes until the user reviews and approves `plans/sync-upstream-origin-local.md`.
+
+Files touched:
+- `.git/HEAD`
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-01 06:40:13 — Codex
 Decision recorded: do not run a fresh native reinstall in this continuation because current live receipts prove Codex Desktop Linux is already installed.
 

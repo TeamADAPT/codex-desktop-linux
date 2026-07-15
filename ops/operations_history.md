@@ -1,5 +1,25 @@
 # Operations History
 
+## 2026-07-15 02:22:59 — Codex
+Created the upstream-to-origin-to-local synchronization task and approval-gated execution plan after verifying the clean worktree and remote topology.
+
+Actions performed:
+
+- Verified `upstream` is `ilysenko/codex-desktop-linux` and `origin` is the TeamADAPT fork.
+- Verified `upstream/main` is `52e9701e3f1be291821cff904b6cd4bdce30998d` while `origin/main` is `fa5baa3896d38c7bfa98eee4875bd973c62bca05`.
+- Switched from local `dev/mobile-gpu-route` to the dedicated `working` branch.
+- Added the task to `ops/to_do/` and documented the non-force synchronization plan.
+- Left source refs and source files unchanged pending user approval.
+
+Files touched:
+- `.git/HEAD`
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-01 06:40:13 — Codex
 Reverified the Codex Desktop Linux install from the live system and reconciled the local branch with `origin/working`.
 
