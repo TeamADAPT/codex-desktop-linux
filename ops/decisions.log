@@ -1,5 +1,36 @@
 # Decisions Log
 
+## 2026-07-15 03:16:46 — Codex
+Decision recorded: close the review as complete because official release notes, the latest official payload, wrapper history, and live-system state agree on the feature's existence, setting, rollout boundary, and current local status.
+
+Files touched:
+- `ops/in_progress/review_chatgpt_work_mode/`
+- `ops/completed/review_chatgpt_work_mode/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
+## 2026-07-15 03:15:50 — Codex
+Decision recorded: classify ChatGPT Work as an upstream application feature with a local mode value and separate server-side eligibility gate; do not treat the absence of a wrapper changelog entry as absence of the feature.
+
+Decision recorded: leave the live setting at `STEPS_COMMANDS` because the user requested review, not activation, and because forcing `STEPS_PROSE` cannot grant rollout eligibility or replace the required desktop update.
+
+Decision recorded: do not merge wrapper commit `79d7303` during this review because it is unrelated to Work mode and the request explicitly changed from synchronization to review.
+
+Files touched:
+- `.git/FETCH_HEAD`
+- `.git/refs/remotes/upstream/main`
+- `/tmp/codex-workmode-review/` (created and removed)
+- `/home/x/.npm/_npx/4b0e2640fe917ac8/` (created and removed)
+- `/home/x/.npm/_logs/2026-07-15T10_11_40_229Z-debug-0.log` (created and removed)
+- `ops/in_progress/review_chatgpt_work_mode/review_report.md`
+- `ops/in_progress/review_chatgpt_work_mode/completion_report.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:15:25 — Codex
 Decision recorded: evaluate both the wrapper repository and the official desktop payload because the wrapper changelog does not author upstream product releases and can legitimately omit a server-gated desktop feature.
 

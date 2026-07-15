@@ -1,5 +1,48 @@
 # Operations History
 
+## 2026-07-15 03:16:46 — Codex
+Closed the ChatGPT Work mode review with the evidence report complete.
+
+Actions performed:
+
+- Moved the task from `ops/in_progress/` to `ops/completed/`.
+- Confirmed the review changed no application source and no live runtime setting.
+
+Files touched:
+- `ops/in_progress/review_chatgpt_work_mode/`
+- `ops/completed/review_chatgpt_work_mode/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
+## 2026-07-15 03:15:50 — Codex
+Completed the ChatGPT Work mode upstream and live-system review.
+
+Actions performed:
+
+- Fetched and reviewed wrapper `upstream/main`; its sole new commit, `79d7303`, is an unrelated Nix CLI-path fix.
+- Confirmed the wrapper changelog has no Work-mode entry.
+- Reviewed OpenAI's July 9 release notes and current Work/Codex desktop documentation.
+- Downloaded and hash-verified official DMG `26.707.72221`.
+- Inspected the latest `app.asar` and confirmed the Work/Codex selector, local setting schema, and rollout gate.
+- Inspected the running Linux installation and confirmed package, process, upstream app version, and current setting state.
+- Removed the temporary DMG, extraction tree, and task-specific `npx` cache/log artifacts.
+- Wrote the review and completion reports.
+
+Files touched:
+- `.git/FETCH_HEAD`
+- `.git/refs/remotes/upstream/main`
+- `/tmp/codex-workmode-review/` (created and removed)
+- `/home/x/.npm/_npx/4b0e2640fe917ac8/` (created and removed)
+- `/home/x/.npm/_logs/2026-07-15T10_11_40_229Z-debug-0.log` (created and removed)
+- `ops/in_progress/review_chatgpt_work_mode/review_report.md`
+- `ops/in_progress/review_chatgpt_work_mode/completion_report.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:15:25 — Codex
 Started the ChatGPT Work mode review.
 
