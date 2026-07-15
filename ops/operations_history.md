@@ -1,5 +1,21 @@
 # Operations History
 
+## 2026-07-15 03:15:08 — Codex
+Selected a focused read-only review task for the newly released ChatGPT Work mode.
+
+Actions performed:
+
+- Created the task record under `ops/to_do/`.
+- Scoped the work to upstream source, official release notes, the official DMG payload, and live Linux state.
+- Prohibited application source and runtime configuration changes for this review.
+
+Files touched:
+- `ops/to_do/review_chatgpt_work_mode/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:39:27 — Codex
 Completed the upstream-to-origin-to-local synchronization task with final live Git receipts.
 

@@ -1,5 +1,15 @@
 # Decisions Log
 
+## 2026-07-15 03:15:08 — Codex
+Decision recorded: perform a read-only evidence review because the request is to identify upstream behavior and configuration, not to modify or enable the feature.
+
+Files touched:
+- `ops/to_do/review_chatgpt_work_mode/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:39:27 — Codex
 Decision recorded: close the synchronization task because the requested upstream-to-origin-to-local ref chain matches exactly, TeamADAPT history remains contained by `working`, broad native validation is recorded, and the only residual is an explicitly documented upstream test-concurrency defect.
 
