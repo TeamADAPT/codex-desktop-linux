@@ -1,6 +1,6 @@
 # Architecture
 
-This repository adapts the upstream macOS Codex Desktop DMG into Linux app and
+This repository adapts the upstream macOS ChatGPT Desktop DMG into Linux app and
 package artifacts.
 
 ## Build Pipeline
@@ -29,6 +29,25 @@ native modules, and removes macOS-only pieces such as Sparkle.
 Core Linux compatibility patches live under `scripts/patches/core/`.
 Descriptors declare phase, order, target filters, and CI policy.
 
+`scripts/patch-linux-window-ui.js` is the build-facing CLI only. It parses
+arguments, creates/writes the optional report, calls
+`scripts/patches/runner.js`, and applies the critical gate after the report is
+written. Internal code imports runner APIs, not the CLI file.
+
+`scripts/patches/runner.js` collects core descriptors plus enabled
+`linux-features/` descriptors and executes the fresh-DMG pipeline:
+
+1. `main-bundle`
+2. `extracted-app:pre-webview`
+3. `webview-asset`
+4. `extracted-app:post-webview`
+
+`scripts/patches/engine.js` owns descriptor normalization, target/enabled
+checks, phase execution, warning capture, and status recording. Shared
+implementation code lives under `scripts/patches/impl/` by domain; generic
+helpers live under `scripts/patches/lib/`. The deleted compatibility barrels
+are intentionally not part of the architecture.
+
 `ciPolicy` is the single criticality axis, enforced by the patch engine —
 patches themselves never abort the build:
 
@@ -42,12 +61,14 @@ patches themselves never abort the build:
 - `opt-in`: disabled unless explicitly enabled; recorded as `skipped-disabled`.
 
 Every build writes a patch report (`<app>/.codex-linux/patch-report.json`,
-next to `build-info.json`). CI validates the same report with
+next to `build-info.json`). `scripts/lib/patch-report.js` owns report statuses
+and failure predicates. CI validates the same report with
 `scripts/ci/validate-patch-report.js`, which shares the failure predicate with
 the local gate and prints non-failing optional-drift warnings.
 
-Optional additions belong under `linux-features/`. Feature descriptor ids are
-namespaced in patch reports and are optional by default.
+Optional additions belong under `linux-features/`. Feature patching uses only
+`entrypoints.patchDescriptors`; feature descriptor ids are namespaced in patch
+reports and are optional by default.
 
 ## Launcher
 
@@ -68,7 +89,20 @@ packaging/linux/codex-packaged-runtime.sh
 The current evaluation for a future Rust replacement of the local webview
 server lives in [webview-server-evaluation.md](webview-server-evaluation.md).
 
-## Chrome Plugin
+## Bundled Plugins
+
+The build preserves portable upstream Sites, Deep Research, and Visualize
+plugins when they are listed in the official DMG marketplace. Their payloads
+must match the expected local path and contain no symlinks, privileged entries,
+native executables, or platform-specific bundles. Availability in the app can
+still depend on upstream account entitlements or rollout gates.
+
+Plugins with native macOS payloads are not copied through this portable path.
+Linux Computer Use and opt-in Record and Replay use repository-owned Linux
+replacements instead. The bundled LaTeX plugin remains excluded until its
+Tectonic runtime has a verified Linux staging path.
+
+### Chrome Plugin
 
 The build stages the upstream Chrome plugin, patches its Linux compatibility
 paths, builds the native messaging host from Rust, and installs browser
@@ -89,6 +123,10 @@ cargo check -p codex-update-manager
 cargo test -p codex-update-manager
 cargo check -p codex-computer-use-linux
 cargo test -p codex-computer-use-linux
+cargo check -p codex-read-aloud-linux
+cargo test -p codex-read-aloud-linux
+cargo check -p codex-record-replay-linux
+cargo test -p codex-record-replay-linux
 make package
 ```
 

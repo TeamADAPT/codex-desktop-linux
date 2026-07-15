@@ -20,8 +20,8 @@ Run the helper to install them automatically:
 
 Or install manually:
   sudo apt install python3 p7zip-full curl unzip build-essential                   # Debian/Ubuntu
-  sudo dnf install python3 7zip curl unzip rpm-build @development-tools             # Fedora 41+ (dnf5)
-  sudo dnf install nodejs npm python3 p7zip p7zip-plugins curl unzip rpm-build      # Fedora <41 (dnf)
+  sudo dnf install python3 7zip curl unzip rpm-build make gcc-c++ @development-tools             # Fedora 41+ (dnf5)
+  sudo dnf install nodejs npm python3 p7zip p7zip-plugins curl unzip rpm-build make gcc-c++      # Fedora <41 (dnf)
     && sudo dnf groupinstall 'Development Tools'
   sudo pacman -S python p7zip curl unzip zstd base-devel                            # Arch
   sudo zypper install python3 p7zip-full curl unzip                                 # openSUSE
@@ -29,8 +29,17 @@ Or install manually:
 EOF
 }
 
+remove_tree_safely() {
+    local path="$1"
+    [ -e "$path" ] || [ -L "$path" ] || return 0
+    # Sources copied from immutable stores can preserve read-only directory
+    # modes. Make only the local copy writable before removing it.
+    chmod -R u+w "$path" 2>/dev/null || true
+    rm -rf -- "$path"
+}
+
 cleanup() {
-    rm -rf "$WORK_DIR"
+    remove_tree_safely "$WORK_DIR"
 }
 trap cleanup EXIT
 trap 'error "Failed at line $LINENO (exit code $?)"' ERR
@@ -47,7 +56,7 @@ usage() {
     cat <<'HELP'
 Usage: ./install.sh [OPTIONS] [path/to/Codex.dmg]
 
-Converts the official macOS Codex Desktop app to run on Linux.
+Converts the official macOS ChatGPT Desktop app to run on Linux.
 
 Options:
   -h, --help     Show this help message and exit
@@ -63,14 +72,23 @@ Environment variables:
                       Allow overwriting INSTALL_DIR while Codex is running
   CODEX_APP_ID        Override Linux app id/bin identity (default: codex-desktop)
   CODEX_APP_DISPLAY_NAME
-                      Override display name (default: Codex Desktop)
+                      Override display name (default: ChatGPT)
   CODEX_WEBVIEW_PORT  Override webview HTTP port (default: 5175, or 5176 for non-default app ids)
+  CODEX_DMG_REFRESH_MODE=pinned
+                      Reuse an existing cached Codex.dmg verbatim and refuse
+                      network refresh/download when no explicit DMG path is passed
   ELECTRON_HEADERS_URL
                       Override the Electron headers URL used by @electron/rebuild
                       (default: https://artifacts.electronjs.org/headers/dist)
   ELECTRON_MIRROR     Override the Electron runtime download mirror root
                       (example: https://npmmirror.com/mirrors/electron/)
   REBUILD_REPORT_DIR  Default report directory for --inspect and rebuild reports
+  CODEX_ACCEPTANCE_OVERRIDE=1
+                      Developer-only promotion override for a completely built
+                      candidate rejected by the shared acceptance profile
+  CODEX_KEEP_REJECTED_CANDIDATE=1
+                      Keep a rejected or safely unpromoted sibling candidate
+                      for diagnostics
 
 After install, launch with:
   ./codex-app/start.sh
@@ -141,6 +159,20 @@ shell_quote() {
     printf '%q' "$1"
 }
 
+dmg_refresh_mode_is_pinned() {
+    case "${CODEX_DMG_REFRESH_MODE:-auto}" in
+        ""|auto)
+            return 1
+            ;;
+        pinned|pin|1|true|yes)
+            return 0
+            ;;
+        *)
+            error "CODEX_DMG_REFRESH_MODE must be 'auto' or 'pinned'"
+            ;;
+    esac
+}
+
 prepare_install() {
     if [ "$FRESH_INSTALL" -eq 1 ] && [ -d "$INSTALL_DIR" ]; then
         info "Removing existing install directory: $INSTALL_DIR"
@@ -148,6 +180,7 @@ prepare_install() {
     fi
 
     if [ "$FRESH_INSTALL" -eq 1 ] && [ "$REUSE_CACHED_DMG" -ne 1 ] \
+            && ! dmg_refresh_mode_is_pinned \
             && { [ -e "$CACHED_DMG_PATH" ] || [ -e "$CACHED_DMG_METADATA_PATH" ]; }; then
         info "Removing cached DMG and metadata: $CACHED_DMG_PATH"
         rm -f "$CACHED_DMG_PATH"
@@ -158,7 +191,7 @@ prepare_install() {
 # ---- Check dependencies ----
 check_deps() {
     local missing=()
-    for cmd in python3 curl unzip tar; do
+    for cmd in python3 curl unzip tar flock; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
     if ! command -v 7zz &>/dev/null && ! command -v 7z &>/dev/null; then

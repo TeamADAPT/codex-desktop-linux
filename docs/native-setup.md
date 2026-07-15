@@ -13,15 +13,29 @@ cd codex-desktop-linux
 make bootstrap-native
 ```
 
-`make bootstrap-native` installs build dependencies, regenerates `codex-app/`
-from a fresh upstream `Codex.dmg`, builds the matching native package, and
-installs the newest artifact from `dist/`.
+`make bootstrap-native` installs build dependencies, regenerates `codex-app/`,
+validates the cached upstream `Codex.dmg` and downloads it only when missing or
+stale, builds the matching native package, and installs the newest artifact
+from `dist/`.
 
 If dependencies are already installed:
 
 ```bash
 make install-native
 ```
+
+To play a best-effort sound immediately before an interactive `sudo` password
+prompt, opt in with `CODEX_SUDO_ALERT=1`:
+
+```bash
+CODEX_SUDO_ALERT=1 make install-native
+CODEX_SUDO_ALERT=1 make bootstrap-native
+CODEX_SUDO_ALERT=1 make update-native
+```
+
+The alert is skipped while the existing `sudo` credential timestamp is valid.
+It tries the desktop sound system first and falls back to the terminal bell.
+Missing audio tools, sound files, or audio services never block installation.
 
 ## Guided Setup
 

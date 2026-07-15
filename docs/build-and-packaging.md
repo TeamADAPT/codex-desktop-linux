@@ -4,14 +4,17 @@
 
 You need:
 
-- `python3`, `7z` or `7zz`, `curl`, `unzip`, `make`, `g++`
+- `python3`, `7z` or `7zz`, `curl`, `unzip`, `tar`, `make`, `g++`
 - Rust toolchain with `cargo` for `codex-update-manager`,
-  `codex-computer-use-linux`, and the Chrome extension host binary
+  `codex-computer-use-linux`, the Chrome extension host binary, and optional
+  Rust-backed features such as Read Aloud MCP and Record & Replay
 
 The installer downloads a managed Linux Node.js runtime into
 `codex-app/resources/node-runtime` and uses it for `node`, `npm`, and `npx`
 during the build. Existing `nvm`, asdf, Volta, NodeSource, or nodejs.org
-installs are fine, but no longer required for this project.
+installs are fine, but no longer required for the generated app build. The
+dependency helper may still install or validate a distro Node.js toolchain on
+some bootstrap paths.
 
 Bootstrap dependencies:
 
@@ -26,18 +29,18 @@ packages, and bootstraps Rust through `rustup` when needed.
 
 ```bash
 # Fedora 41+
-sudo dnf install python3 7zip curl unzip rpm-build @development-tools
+sudo dnf install python3 7zip curl unzip tar rpm-build make gcc-c++ @development-tools
 
 # Fedora < 41
-sudo dnf install python3 p7zip p7zip-plugins curl unzip rpm-build
+sudo dnf install python3 p7zip p7zip-plugins curl unzip tar rpm-build make gcc-c++
 sudo dnf groupinstall 'Development Tools'
 
 # openSUSE
-sudo zypper install python3 p7zip-full curl unzip
+sudo zypper install python3 p7zip-full curl unzip tar
 sudo zypper install -t pattern devel_basis
 
 # Arch / Manjaro
-sudo pacman -S --needed python p7zip curl unzip zstd base-devel
+sudo pacman -S --needed python p7zip curl unzip tar zstd base-devel
 
 # Rust toolchain
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -72,8 +75,45 @@ Equivalent direct commands:
 
 The default path stores upstream DMG headers, plus a hash of the upstream URL,
 next to `Codex.dmg` and refreshes the cached file when that upstream fingerprint
-changes. `--fresh` still forces a cache removal before rebuilding, and an
+changes. Every command builds a sibling candidate and runs the shared
+[upstream DMG acceptance profile](upstream-dmg-acceptance.md) before replacing
+`codex-app/`. A rejected or inconclusive candidate leaves the working app
+unchanged. Acceptance checks only configured Linux Features and rejects drift
+in any enabled feature; disable that feature before retrying if necessary.
+Replacing an existing app uses an atomic directory exchange plus a recovery
+journal, so interruption cannot leave the canonical install path missing. If
+the filesystem does not support atomic exchange, promotion stops without
+changing the working app.
+`--fresh` still forces a cache removal before rebuilding, and an
 explicit `DMG=/path/to/Codex.dmg` uses that file exactly.
+Native install shortcuts use `--fresh --reuse-dmg`, so they build a clean
+candidate while still reusing the cached DMG when upstream metadata matches.
+
+For deterministic test rounds, set `CODEX_DMG_REFRESH_MODE=pinned`. Pinned mode
+reuses the existing cached `Codex.dmg` verbatim, skips upstream metadata checks,
+and fails instead of downloading when no cached DMG or explicit `DMG=...` path is
+available. This also keeps `--fresh` from deleting the cached DMG.
+
+Before accepting a fast-moving upstream DMG, run the report-only intelligence
+lane to inventory protected Sky/Chronicle/Skysight/Computer Use/Record & Replay
+surfaces:
+
+```bash
+make inspect-upstream DMG=/path/to/Codex.dmg
+make inspect-upstream-intel-devcontainer
+```
+
+The devcontainer intelligence target downloads the current upstream DMG into
+`reports/upstream-dmg/downloads/` when `DMG=...` is omitted and automatically
+compares it against repo `./Codex.dmg` when that cached baseline exists.
+For an already downloaded candidate, pass only that one path:
+
+```bash
+make inspect-upstream-intel-devcontainer DMG=/path/to/new/Codex.dmg
+```
+
+See `docs/upstream-dmg-intelligence.md` for the protected-surface registry,
+JSON/Markdown report outputs, and fixture-based test strategy.
 
 Run the generated app:
 
@@ -133,7 +173,23 @@ make appimage
 The AppImage flow does not include `codex-update-manager`, the systemd user
 service, polkit policy, or the native-package update builder.
 
-When upstream Codex Desktop changes:
+To make a local AppImage self-contained, install the CLI with its optional
+Linux package and pass the package directory to the AppImage build:
+
+```bash
+cli_prefix="$HOME/.cache/codex-desktop-linux/appimage-cli"
+npm install --prefix "$cli_prefix" --include=optional @openai/codex
+CODEX_CLI_BUNDLE_SOURCE="$cli_prefix/node_modules/@openai/codex" make appimage
+```
+
+The build copies only `@openai/codex` and the matching Linux architecture
+package on x86-64 and ARM64. It does not fetch packages itself. The bundled CLI
+is used when `CODEX_CLI_PATH` is unset and takes precedence over a host
+installation. This adds the native CLI payload to the AppImage, which is several
+hundred MiB for current releases. Rebuild the AppImage when you want to update
+the embedded CLI.
+
+When upstream ChatGPT Desktop changes:
 
 ```bash
 git pull --ff-only

@@ -3,11 +3,16 @@
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
+const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+
+const {
+  applyPetOverlayPatch,
+} = require("../linux-features/pet-overlay/patch.js");
 
 // Pin the feature config so a developer's local gitignored features.json
 // cannot change which patch descriptors these core tests exercise.
@@ -19,87 +24,123 @@ process.env.CODEX_LINUX_FEATURES_CONFIG = path.join(
 );
 
 const {
+  applyAutomationScheduleMultiTimePatch,
+  patchAutomationScheduleAssets,
+} = require("./patches/impl/automation-schedule.js");
+const {
   COMPUTER_USE_UI_ENV_VAR,
   COMPUTER_USE_UI_SETTINGS_KEY,
-  applyAutomationScheduleMultiTimePatch,
-  applyKeybindsSettingsIndexPatch,
   applyLinuxComputerUseFeaturePatch,
   applyLinuxComputerUseInstallFlowPatch,
   applyLinuxNativeDesktopAppsHandlerPatch,
   applyLinuxComputerUsePluginGatePatch,
   applyLinuxComputerUseRendererAvailabilityPatch,
-  applyLinuxDesktopSettingsIndexPatch,
-  applyLinuxAvatarOverlayMousePassthroughPatch,
-  applyBrowserUseNodeReplApprovalPatch,
-  applyLinuxBrowserUseRouteLivenessPatch,
-  applyLinuxChromeExtensionStatusPatch,
-  applyLinuxChromeNativeHostRuntimePatch,
-  applyLinuxChromePluginAutoInstallPatch,
-  applyLinuxAppUpdaterBridgePatch,
-  applyLinuxAppUpdaterMenuPatch,
-  applyLinuxAboutDialogPatch,
-  applyLinuxBuildInfoTrayPatch,
-  applyLinuxExplicitIpcQuitPatch,
-  applyLinuxExplicitQuitPromptBypassPatch,
-  applyLinuxExplicitTrayQuitPatch,
-  applyLinuxFileManagerPatch,
-  applyLinuxGitOriginsSourceFallbackPatch,
-  applyLinuxWorkerFileManagerPatch,
-  applyLinuxQuitGuardPatch,
-  applyLinuxHotkeyWindowPrewarmPatch,
-  applyLinuxLaunchActionArgsPatch,
-  applyLinuxSettingsPersistencePatch,
-  applyLinuxMenuPatch,
-  applyLinuxNativeTitlebarPatch,
-  applyLinuxLocalAppServerFeatureEnablementHandlerPatch,
-  applyLinuxMultiInstanceBootstrapPatch,
-  applyLinuxAppSunsetPatch,
-  applyLinuxBrowserUseAvailabilityPatch,
-  applyLinuxBrowserUseExternalAvailabilityPatch,
-  applyLinuxProjectlessXdgDocumentsDirPatch,
-  applyLinuxBrowserUseNonLocalNavigationPatch,
-  applyLinuxAppServerBackfillWaitPatch,
-  applyLinuxOpaqueBackgroundPatch,
-  applyLinuxOwlFeatureBindingFallbackPatch,
-  applyLinuxFastModeModelGuardPatch,
-  applyLinuxOpaqueWindowsDefaultPatch,
-  applyLinuxReadyToShowWindowStatePatch,
-  applyLinuxResizeRepaintPatch,
-  applyLinuxSetIconPatch,
-  applyLinuxRemoteControlConfigPreservationPatch,
-  applyLinuxSingleInstancePatch,
-  applyLinuxTrayCloseSettingPatch,
-  applyLinuxTrayPatch,
-  applyLinuxWillQuitDrainTimeoutPatch,
-  applyLinuxWindowOptionsPatch,
-  applyLinuxXdgDocumentsDirPatch,
-  applySubagentNicknameMetadataPatch,
   isComputerUseUiEnabled,
-  patchMainBundleSource,
-  patchExtractedApp,
-  patchPackageJson,
-  patchLinuxAppUpdaterBridge,
-  patchProjectlessDocumentsAssets,
-  patchKeybindsSettingsAssets,
-  patchAutomationScheduleAssets,
-  patchLinuxOwlFeatureBindingFallbackAssets,
-  createPatchReport,
-  corePatchDescriptors,
-  detectLinuxTargetContext,
-  discoverCorePatchDescriptors,
-  enabledLinuxFeatureIds,
-  linuxTargetSummary,
-  normalizePatchDescriptors,
-  parseOsRelease,
-  resolveDesktopName,
-} = require("./patch-linux-window-ui.js");
+} = require("./patches/impl/computer-use.js");
 const {
   keybindsSettingsAsset,
   linuxDesktopSettingsAsset,
+  applyLinuxDesktopSettingsIndexPatch,
+  applyLinuxShortcutPhysicalKeyFallbackPatch,
   applyLinuxDesktopSettingsSectionsPatch,
-  applyKeybindsSettingsSharedPatch,
   applyLinuxDesktopSettingsSharedPatch,
-} = require("./patches/keybinds-settings.js");
+  applyLinuxKeybindOverridesRuntimePatch,
+  patchKeybindsSettingsAssets,
+} = require("./patches/impl/keybinds-settings.js");
+const {
+  applyLinuxAvatarOverlayMousePassthroughPatch,
+} = require("./patches/impl/avatar-overlay.js");
+const {
+  applyBrowserUseNodeReplApprovalPatch,
+  applyBrowserUseNodeReplApprovalAssets,
+  applyLinuxBundledPluginCopyPermissionsPatch,
+  applyLinuxBundledPluginReconcileStaleSnapshotPatch,
+  applyLinuxBrowserUseRouteLivenessPatch,
+  applyLinuxChromeExtensionStatusPatch,
+  applyLinuxExternalOpenEnvPatch,
+} = require("./patches/impl/main-process/browser.js");
+const {
+  applyLinuxChromeNativeHostRuntimePatch,
+  applyLinuxChromePluginAutoInstallPatch,
+} = require("./patches/impl/chrome-plugin.js");
+const {
+  applyLinuxAboutDialogPatch,
+  applyLinuxAppReloadShortcutsPatch,
+  applyLinuxApplicationMenuPatch,
+  applyLinuxMenuPatch,
+  applyLinuxNativeTitlebarPatch,
+  applyLinuxOpaqueBackgroundPatch,
+  applyLinuxReadyToShowWindowStatePatch,
+  applyLinuxResizeRepaintPatch,
+  applyLinuxSetIconPatch,
+  applyLinuxWindowOptionsPatch,
+} = require("./patches/impl/main-process/window.js");
+const {
+  applyLinuxBuildInfoTrayPatch,
+  applyLinuxSingleInstancePatch,
+  applyLinuxTrayPatch,
+} = require("./patches/impl/main-process/tray.js");
+const {
+  applyLinuxExplicitIpcQuitPatch,
+  applyLinuxExplicitQuitPromptBypassPatch,
+  applyLinuxExplicitTrayQuitPatch,
+  applyLinuxQuitGuardPatch,
+  applyLinuxWillQuitDrainTimeoutPatch,
+} = require("./patches/impl/main-process/quit-lifecycle.js");
+const {
+  applyLinuxHostProcessEnvironmentPatch,
+  applyLinuxFileManagerPatch,
+  applyLinuxGitOriginsSourceFallbackPatch,
+  applyLinuxLocalAppServerFeatureEnablementHandlerPatch,
+  applyLinuxOwlFeatureBindingFallbackPatch,
+  applyLinuxRemoteControlConfigPreservationPatch,
+  applyLinuxTerminalHostEnvironmentPatch,
+  applyLinuxTerminalUserPathPatch,
+  applyLinuxWorkerFileManagerPatch,
+  applyLinuxXdgDocumentsDirPatch,
+  applyLinuxX11ProjectPickerPatch,
+  patchLinuxOwlFeatureBindingFallbackAssets,
+  patchLinuxHostProcessEnvironmentTargets,
+} = require("./patches/impl/main-process/misc.js");
+const {
+  applyLinuxHotkeyWindowPrewarmPatch,
+  applyLinuxLaunchActionArgsPatch,
+  applyLinuxSettingsPersistencePatch,
+} = require("./patches/impl/launch-actions.js");
+const {
+  applyLinuxMultiInstanceBootstrapPatch,
+} = require("./patches/impl/bootstrap.js");
+const {
+  applyLinuxProjectlessXdgDocumentsDirPatch,
+  patchProjectlessDocumentsAssets,
+} = require("./patches/impl/projectless-documents.js");
+const {
+  patchPackageJson,
+  resolveDesktopName,
+} = require("./patches/impl/package-json.js");
+const {
+  patchExtractedApp,
+  patchMainBundleSource,
+  corePatchDescriptors,
+  featurePatchDescriptors,
+} = require("./patches/runner.js");
+const {
+  discoverCorePatchDescriptors,
+  normalizePatchDescriptors,
+} = require("./patches/engine.js");
+const {
+  detectLinuxTargetContext,
+  linuxTargetSummary,
+  parseOsRelease,
+} = require("./lib/linux-target-context.js");
+const {
+  enabledLinuxFeatureIds,
+} = require("./lib/linux-features.js");
+const {
+  applyLinuxAppUpdaterBridgePatch,
+  applyLinuxAppUpdaterMenuPatch,
+  patchLinuxAppUpdaterBridge,
+} = require("./lib/linux-update-bridge-patch.js");
 const {
   validateReport,
 } = require("./ci/validate-patch-report.js");
@@ -110,6 +151,7 @@ const {
   sourceInfo,
 } = require("./lib/build-info.js");
 const {
+  createPatchReport,
   criticalFailuresFromReport,
   optionalDriftFromReport,
   summarizePatchReport,
@@ -118,33 +160,51 @@ const {
   applyBrowserAnnotationScreenshotPatch,
   applyLocalEnvironmentActionModalDraftPatch,
   applyPersistentRateLimitFooterPatch,
+  applyLinuxAppServerBackfillWaitPatch,
   applyLinuxAppServerFeatureEnablementPatch,
+  applyAutomationUpdateEagerToolPatch,
+  applyLinuxAppSunsetPatch,
+  applyLinuxBrowserUseAvailabilityPatch,
+  applyLinuxBrowserUseWebviewAttachRecoveryPatch,
+  applyLinuxBrowserUseExternalAvailabilityPatch,
+  applyLinuxBrowserUseWebviewHostRecoveryPatch,
+  applyLinuxBrowserUseWebviewRemountStorePatch,
+  applyLinuxBrowserUseNonLocalNavigationPatch,
   applyLinuxChatSearchHydrationPatch,
   applyLinuxConfigWriteVersionConflictPatch,
+  applyLinuxFastModeModelGuardPatch,
   applyLinuxI18nGatePatch,
-  applyLinuxProfileSettingsMenuPatch,
+  applyLinuxOpaqueWindowsDefaultPatch,
   applyLinuxSafeMonospaceFontStackPatch,
+  applyLinuxSettingsSearchVisibilityPatch,
+  applyLinuxSkillsListDedupePatch,
   applyLinuxThreadSidePanelNativeTooltipPatch,
   applyLinuxTooltipWindowControlsCollisionPatch,
   applyLinuxWindowControlsSafeAreaPatch,
-} = require("./patches/webview-assets.js");
-const { patchAssetFiles } = require("./patches/shared.js");
-const { featurePatchDescriptors } = require("./patches/registry.js");
+  applySubagentNicknameMetadataPatch,
+  codexLinuxWatchBrowserWebviewAttachment,
+} = require("./patches/impl/webview/index.js");
+const {
+  findCodexRequestWebviewAsset,
+  patchAssetFiles,
+} = require("./patches/lib/assets.js");
 
 const mainBundlePrefix =
-  "let n=require(`electron`),i=require(`node:path`),o=require(`node:fs`);";
+  "let s=require(`node:url`),n=require(`electron`);n=e.o(n);let i=require(`node:path`);i=e.o(i);let o=require(`node:fs`);o=e.o(o);";
+const currentMainBundlePrefix =
+  "const e={o:e=>e};let s=require(`node:url`),c=require(`electron`);c=e.o(c);let l=require(`node:os`);l=e.o(l);let u=require(`node:path`);u=e.o(u);let d=require(`node:util`),f=require(`node:crypto`),p=require(`node:fs`);p=e.o(p);";
 const workerBundlePrefix =
   "let i=require(`node:path`),o=require(`node:fs`);";
 const fileManagerBundle =
   "var lu=jl({id:`fileManager`,label:`Finder`,icon:`apps/finder.png`,kind:`fileManager`,darwin:{detect:()=>`open`,args:e=>il(e)},win32:{label:`File Explorer`,icon:`apps/file-explorer.png`,detect:uu,args:e=>il(e),open:async({path:e})=>du(e)}});function uu(){}";
-const alreadyOpaqueBackgroundBundle =
-  "process.platform===`linux`?{backgroundColor:e?t:n,backgroundMaterial:null}:{backgroundColor:r,backgroundMaterial:null}";
-const opaqueBackgroundBundleWithDriftingGw =
-  "var cM=`#00000000`,lM=`#000000`,uM=`#f9f9f9`;function OM(e){return e===`avatarOverlay`||e===`browserCommentPopup`}function jM({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return e===`win32`&&!OM(t)?n?{backgroundColor:r?lM:uM,backgroundMaterial:`none`}:{backgroundColor:cM,backgroundMaterial:`mica`}:{backgroundColor:cM,backgroundMaterial:null}}function gw(e){return e.page==null?e.snapshot.url:mw(e.page)}";
-const currentOpaqueBackgroundBundle =
-  "var QK=`#00000000`,$K=`#000000`,eq=`#f9f9f9`;function vq(e){return e===`avatarOverlay`||e===`browserCommentPopup`||e===`globalDictation`||e===`hotkeyWindowHome`||e===`hotkeyWindowThread`}function xq({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return n&&!vq(t)&&(e===`darwin`||e===`win32`)?{backgroundColor:r?$K:eq,backgroundMaterial:e===`win32`?`none`:null}:e===`win32`&&!vq(t)?{backgroundColor:QK,backgroundMaterial:`mica`}:{backgroundColor:QK,backgroundMaterial:null}}";
+const terminalEnvBundle =
+  "var Q0=`xterm-256color`;var t={t(e){return e}};var Backend=class{isLocalTerminalSession(e){return e?.type===`local`}async getWorktreeShellEnvironmentForCwd(e){return null}async buildTerminalEnv(e,n,r){let i={...process.env};if(n!=null&&(i.CODEX_APP_TITLE=n),this.isLocalTerminalSession(r)){let t=await this.getWorktreeShellEnvironmentForCwd(e);if(t!=null){for(let e of t.exclude)delete i[e];Object.assign(i,t.set)}}return process.platform!==`win32`&&(i.TERM=Q0,delete i.TERMINFO,delete i.TERMINFO_DIRS),t.t(i)}};";
+const obsoleteTerminalEnvBundle =
+  "var Q0=`xterm-256color`;var t={$r(e){return e}};var Backend=class{isLocalTerminalSession(e){return e?.type===`local`}async getWorktreeShellEnvironmentForCwd(e){return null}async buildTerminalEnv(e,n,r){let i={...process.env};if(n!=null&&(i.CODEX_APP_TITLE=n),this.isLocalTerminalSession(r)){let t=await this.getWorktreeShellEnvironmentForCwd(e);if(t!=null){for(let e of t.exclude)delete i[e];Object.assign(i,t.set)}}return process.platform!==`win32`&&(i.TERM=Q0,delete i.TERMINFO,delete i.TERMINFO_DIRS),t.$r(i)}};";
+const currentOpaqueWindowSurfaceBackgroundHelper =
+  "var W4=`#00000000`,G4=`#000000`,K4=`#f9f9f9`;function g3(e){return e===`avatarOverlay`||e===`browserCommentPopup`||e===`globalDictation`||e===`hotkeyWindowHome`||e===`hotkeyWindowThread`||e===`hud`}function v3({appearance:e,opaqueWindowsEnabled:t,platform:n}){return t&&!g3(e)&&(n===`darwin`||n===`win32`)}function S3({platform:e,appearance:t,opaqueWindowSurfaceEnabled:n,prefersDarkColors:r}){return n?{backgroundColor:r?G4:K4,backgroundMaterial:e===`win32`?`none`:null}:e===`win32`&&!g3(t)?{backgroundColor:W4,backgroundMaterial:`mica`}:{backgroundColor:W4,backgroundMaterial:null}}";
 const currentOpaqueWindowSurfaceBackgroundBundle =
-  "var W4=`#00000000`,G4=`#000000`,K4=`#f9f9f9`;function g3(e){return e===`avatarOverlay`||e===`browserCommentPopup`||e===`globalDictation`||e===`hotkeyWindowHome`||e===`hotkeyWindowThread`||e===`hud`}function v3({appearance:e,opaqueWindowsEnabled:t,platform:n}){return t&&!g3(e)&&(n===`darwin`||n===`win32`)}function S3({platform:e,appearance:t,opaqueWindowSurfaceEnabled:n,prefersDarkColors:r}){return n?{backgroundColor:r?G4:K4,backgroundMaterial:e===`win32`?`none`:null}:e===`win32`&&!g3(t)?{backgroundColor:W4,backgroundMaterial:`mica`}:{backgroundColor:W4,backgroundMaterial:null}}class k3{isOpaqueWindowsEnabled(){return theme?.opaqueWindows===!0}shouldUseOpaqueWindowSurface(e,t,n){return this.shouldAlwaysUseOpaqueWindowSurface(e)}shouldAlwaysUseOpaqueWindowSurface(e){return v3({appearance:e,opaqueWindowsEnabled:this.isOpaqueWindowsEnabled(),platform:process.platform})||!BA()&&!g3(e)}}";
+  `${currentOpaqueWindowSurfaceBackgroundHelper}class k3{isOpaqueWindowsEnabled(){return theme?.opaqueWindows===!0}shouldUseOpaqueWindowSurface(e,t,n){return this.shouldAlwaysUseOpaqueWindowSurface(e)}shouldAlwaysUseOpaqueWindowSurface(e){return v3({appearance:e,opaqueWindowsEnabled:this.isOpaqueWindowsEnabled(),platform:process.platform})||!BA()&&!g3(e)}}`;
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -193,6 +253,16 @@ function currentAutomationScheduleBundleFixture() {
     "function Tn(e,t,n){let r=En(e),i=En(t);return r!=null&&i!=null?Mn(r,i):n.dtstart?Mn(n.dtstart.getHours(),n.dtstart.getMinutes()):Wt}function En(e){return Array.isArray(e)?typeof e[0]==`number`?e[0]:null:typeof e==`number`?e:null}",
     "function $(e){let t=yt(e,{forceset:!0,tzid:Nn()??void 0}),n=t.rrules()[0],r=n.options,i=Dn(r.byweekday)??On(e)??X,a=En(r.byminute);return{freq:r.freq,isStandaloneRrule:n.origOptions.dtstart==null&&t.rrules().length===1&&t.rdates().length===0&&t.exrules().length===0&&t.exdates().length===0,hasMultipleTimeValues:Array.isArray(r.byhour)&&r.byhour.length>1||Array.isArray(r.byminute)&&r.byminute.length>1,interval:Math.max(1,Math.round(r.interval??1)),minute:a,origOptions:n.origOptions,rruleText:e,time:Tn(r.byhour,r.byminute,r),weekdays:i}}",
     "function bn(e,t){if(!e||e.hasMultipleTimeValues)return null;let n=on(e.weekdays),r=n.length===q.length;if(e.freq===K.MINUTELY)return Sn({intervalMinutes:e.interval,intl:t,isEveryDay:r,weekdays:n});if(e.freq===K.HOURLY)return xn({intervalHours:e.interval,intl:t,isEveryDay:r,weekdays:n});if(e.freq!==K.DAILY&&e.freq!==K.WEEKLY)return null;let i=Mt(e.time,t);return i?wn({intl:t,isEveryDay:r,timeLabel:i,weekdays:n}):null}",
+  ].join("");
+}
+
+function currentAutomationScheduleBundleWithDollarIdentifierFixture() {
+  return [
+    "var TJ={MINUTELY:1,HOURLY:2,DAILY:3,WEEKLY:4},PJ=[`SU`,`MO`,`TU`,`WE`,`TH`,`FR`,`SA`],XJ=`09:00`;",
+    "function Flt(e){return e.length>0?e:PJ}function Ylt(){return `minute`}function Jlt(){return `hour`}function Qlt({timeLabel:e}){return e}function xlt(e,t){return t.formatTime(e)}function KJ(e,t){return`${e}:${t}`}",
+    "function HJ(e){if(!e)return null;try{let t=DJ(e,{forceset:!0,tzid:iut()??void 0}),n=t.rrules()[0];if(!n)return null;let r=n.options,i=eut(r.byweekday)??tut(e)??PJ,a=WJ(r.byminute);return{freq:r.freq,isStandaloneRrule:n.origOptions.dtstart==null&&t.rrules().length===1&&t.rdates().length===0&&t.exrules().length===0&&t.exdates().length===0,hasMultipleTimeValues:Array.isArray(r.byhour)&&r.byhour.length>1||Array.isArray(r.byminute)&&r.byminute.length>1,interval:Math.max(1,Math.round(r.interval??1)),minute:a,origOptions:n.origOptions,rruleText:e,time:$lt(r.byhour,r.byminute,r),weekdays:i}}catch{return null}}",
+    "function qlt(e,t){if(!e||e.hasMultipleTimeValues)return null;let n=Flt(e.weekdays),r=n.length===PJ.length;if(e.freq===TJ.MINUTELY)return Ylt({intervalMinutes:e.interval,intl:t,isEveryDay:r,weekdays:n});if(e.freq===TJ.HOURLY)return Jlt({intervalHours:e.interval,intl:t,isEveryDay:r,weekdays:n});if(e.freq!==TJ.DAILY&&e.freq!==TJ.WEEKLY)return null;let i=xlt(e.time,t);return i?Qlt({intl:t,isEveryDay:r,timeLabel:i,weekdays:n}):null}",
+    "function $lt(e,t,n){let r=WJ(e),i=WJ(t);return r!=null&&i!=null?KJ(r,i):n.dtstart?KJ(n.dtstart.getHours(),n.dtstart.getMinutes()):XJ}function WJ(e){return Array.isArray(e)?typeof e[0]==`number`?e[0]:null:typeof e==`number`?e:null}",
   ].join("");
 }
 
@@ -261,6 +331,18 @@ test("automation schedule asset patch updates current webview automation bundle"
   }
 });
 
+test("automation schedule patch handles current dollar-prefixed helper names", () => {
+  const patched = applyPatchTwice(
+    applyAutomationScheduleMultiTimePatch,
+    currentAutomationScheduleBundleWithDollarIdentifierFixture(),
+  );
+
+  assert.match(patched, /function codexLinuxRruleTimes/);
+  assert.match(patched, /timeValues:codexLinuxRruleTimes/);
+  assert.match(patched, /codexLinuxAutomationTimeLabel/);
+  assert.doesNotMatch(patched, /if\(!e\|\|e\.hasMultipleTimeValues\)return null/);
+});
+
 test("asset patch helpers match every file when passed a global regex", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-asset-global-"));
   try {
@@ -315,6 +397,68 @@ test("Linux safe monospace font stack patch warns when the unsafe stack drifts",
   assert.equal(value, source);
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /Could not find Linux monospace font stack insertion point/);
+});
+
+test("Linux settings search hides controls that cannot render", () => {
+  const source = [
+    "function qn(e){let t=(0,Zn.c)(17),n=re(),r=Bn(e),{data:i}=_(e),a=i?.isSystemBackdropSupported!==!1,o=i?.platform===`darwin`,{data:s}=T(k,e.selectedHostId),c,l=c;if(a){let e;e=e=>e.sectionSlug===`appearance`&&!a?{...e,messages:e.messages.filter(Jn)}:e.sectionSlug===`agent`?{...e,terms:[]}:e,m=r.map(e)}else m=r;return m}",
+    "function Jn(e){return!Qn.includes(e.id)}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxSettingsSearchVisibilityPatch, source);
+
+  assert.match(patched, /function codexLinuxFilterSettingsSearchSection\(/);
+  assert.match(patched, /settings\.general\.appearance\.dockIcon\.label/);
+  assert.match(
+    patched,
+    /return m\.map\(e=>codexLinuxFilterSettingsSearchSection\(e,o\)\)/,
+  );
+  assert.equal(
+    (patched.match(/function codexLinuxFilterSettingsSearchSection\(/g) || []).length,
+    1,
+  );
+
+  const helperStart = patched.indexOf(
+    "var codexLinuxDarwinOnlySettingsSearchMessageIds",
+  );
+  const helperEnd = patched.indexOf("function qn", helperStart);
+  const context = {};
+  vm.runInNewContext(
+    `${patched.slice(helperStart, helperEnd)};globalThis.filter=codexLinuxFilterSettingsSearchSection`,
+    context,
+  );
+  const dockMessage = {
+    id: "settings.general.appearance.dockIcon.label",
+  };
+  const themeMessage = {
+    id: "settings.general.appearance.theme",
+  };
+  assert.deepEqual(
+    Array.from(context.filter({
+      sectionSlug: "appearance",
+      messages: [dockMessage, themeMessage],
+    }, false).messages, (message) => message.id),
+    [themeMessage.id],
+  );
+  assert.deepEqual(
+    Array.from(context.filter({
+      sectionSlug: "appearance",
+      messages: [dockMessage, themeMessage],
+    }, true).messages, (message) => message.id),
+    [dockMessage.id, themeMessage.id],
+  );
+});
+
+test("Linux settings search visibility patch warns on current-bundle drift", () => {
+  const source =
+    'import{aG as h}from"./app-current.js";function qn(e){return settingsSearchDocuments}';
+  const { value, warnings } = captureWarns(() =>
+    applyLinuxSettingsSearchVisibilityPatch(source),
+  );
+
+  assert.equal(value, source);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /settings search visibility insertion point/);
 });
 
 test("subagent nickname metadata patch accepts session metadata shape", () => {
@@ -484,7 +628,7 @@ test("build info captures DMG hash, features, distro profile, and source revisio
       appDir,
       electronVersion: "41.3.0",
       appId: "codex-desktop",
-      appDisplayName: "Codex Desktop",
+      appDisplayName: "ChatGPT Desktop",
       featuresRoot,
       env: {
         CODEX_LINUX_SOURCE_COMMIT: "abcdef1234567890",
@@ -566,14 +710,103 @@ test("package profile distinguishes Fedora package managers by major version", (
   const fedora40 = detectLinuxTargetContext({
     osReleaseFields: { ID: "fedora", VERSION_ID: "40", PRETTY_NAME: "Fedora Linux 40" },
     env: { PATH: "" },
+    atomic: false,
   });
   const fedora41 = detectLinuxTargetContext({
     osReleaseFields: { ID: "fedora", VERSION_ID: "41", PRETTY_NAME: "Fedora Linux 41" },
     env: { PATH: "" },
+    atomic: false,
   });
 
   assert.equal(packageProfile(fedora40).packageManager, "dnf");
   assert.equal(packageProfile(fedora41).packageManager, "dnf5");
+});
+
+test("package profile identifies Fedora Atomic hosts that use rpm-ostree", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-fedora-atomic-target-"));
+  try {
+    const binDir = path.join(tempRoot, "bin");
+    const ostreeBootedPath = path.join(tempRoot, "ostree-booted");
+    fs.mkdirSync(binDir, { recursive: true });
+    for (const command of ["rpm-ostree", "rpmbuild"]) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, "#!/bin/sh\nexit 0\n", "utf8");
+      fs.chmodSync(commandPath, 0o755);
+    }
+    fs.writeFileSync(ostreeBootedPath, "", "utf8");
+
+    const fedoraAtomic = detectLinuxTargetContext({
+      osReleaseFields: {
+        ID: "fedora",
+        ID_LIKE: "",
+        VERSION_ID: "44",
+        PRETTY_NAME: "Fedora Linux 44 (KDE Plasma Desktop Edition)",
+      },
+      env: {
+        PATH: binDir,
+        OSTREE_BOOTED_FILE: ostreeBootedPath,
+      },
+    });
+
+    assert.equal(fedoraAtomic.atomic, true);
+    assert.equal(fedoraAtomic.packageFormat, "rpm");
+    assert.equal(fedoraAtomic.packageManager, "rpm-ostree");
+    assert.equal(fedoraAtomic.packageManagerIs("rpm-ostree"), true);
+    assert.equal(packageProfile(fedoraAtomic).id, "fedora-atomic");
+    assert.equal(packageProfile(fedoraAtomic).packageManager, "rpm-ostree");
+
+    const fedoraInvalidAtomicOverride = detectLinuxTargetContext({
+      osReleaseFields: {
+        ID: "fedora",
+        ID_LIKE: "",
+        VERSION_ID: "44",
+      },
+      env: {
+        PATH: binDir,
+        CODEX_LINUX_TARGET_ATOMIC: "maybe",
+        OSTREE_BOOTED_FILE: ostreeBootedPath,
+      },
+    });
+
+    assert.equal(fedoraInvalidAtomicOverride.atomic, true);
+    assert.equal(fedoraInvalidAtomicOverride.packageManager, "rpm-ostree");
+
+    const fedoraAtomicOverrideOff = detectLinuxTargetContext({
+      osReleaseFields: {
+        ID: "fedora",
+        ID_LIKE: "",
+        VERSION_ID: "44",
+      },
+      env: {
+        PATH: binDir,
+        CODEX_LINUX_TARGET_ATOMIC: "0",
+        OSTREE_BOOTED_FILE: ostreeBootedPath,
+      },
+    });
+
+    assert.equal(fedoraAtomicOverrideOff.atomic, false);
+    assert.equal(fedoraAtomicOverrideOff.packageManager, "unknown");
+    assert.equal(packageProfile(fedoraAtomicOverrideOff).id, "fedora-41-plus");
+
+    const fedoraRegular = detectLinuxTargetContext({
+      osReleaseFields: {
+        ID: "fedora",
+        ID_LIKE: "",
+        VERSION_ID: "44",
+        PRETTY_NAME: "Fedora Linux 44",
+      },
+      env: {
+        PATH: binDir,
+        OSTREE_BOOTED_FILE: path.join(tempRoot, "missing-ostree-booted"),
+      },
+    });
+
+    assert.equal(fedoraRegular.atomic, false);
+    assert.equal(fedoraRegular.packageManager, "unknown");
+    assert.equal(packageProfile(fedoraRegular).id, "fedora-41-plus");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test("auto-discovered core patches can target a specific Linux distro", () => {
@@ -693,9 +926,13 @@ test("default core patch descriptors are grouped and unique", () => {
     "linux-browser-use-availability",
     "linux-browser-use-non-local-navigation",
     "linux-browser-use-external-availability",
+    "linux-browser-use-webview-attach-recovery",
     "linux-chat-search-hydration",
     "linux-file-manager",
+    "linux-host-child-process-environment",
+    "linux-terminal-host-environment",
     "linux-worker-file-manager",
+    "linux-terminal-user-path",
     "linux-tray",
     "linux-build-info-tray",
     "linux-single-instance",
@@ -705,28 +942,36 @@ test("default core patch descriptors are grouped and unique", () => {
     "linux-chrome-plugin-auto-install",
     "linux-chrome-native-host-runtime",
     "browser-use-node-repl-approval",
+    "linux-bundled-plugin-reconcile-stale-snapshot",
+    "linux-bundled-plugin-copy-permissions",
     "linux-browser-use-route-liveness",
     "linux-chrome-extension-status",
+    "linux-notification-actions",
     "linux-local-app-server-feature-enablement-handler",
     "linux-remote-control-config-preservation",
     "linux-app-updater-menu",
-    "linux-tray-close-setting",
     "linux-settings-persistence",
     "linux-launch-actions",
     "linux-hotkey-window-prewarm",
     "linux-git-origins-source-fallback",
+    "linux-external-open-env",
     "linux-xdg-documents-dir",
     "linux-projectless-xdg-documents-dir",
+    "linux-workspace-root-open-targets",
+    "linux-settings-search-visibility",
     "linux-i18n-gate",
-    "linux-profile-settings-menu",
     "automation-schedule-multi-time-rrule",
+    "automation-update-eager-tool",
     "linux-app-sunset-gate",
     "linux-app-server-feature-enablement",
     "linux-app-server-backfill-wait",
+    "linux-skills-list-dedupe",
     "linux-config-write-version-conflict",
+    "linux-application-menu",
+    "linux-app-reload-shortcuts",
+    "linux-x11-project-picker",
     "opaque-window-default-general-settings",
     "opaque-window-default-webview-index",
-    "opaque-window-default-resolved-theme",
     "linux-window-controls-safe-area",
     "linux-tooltip-window-controls-collision",
     "linux-thread-side-panel-native-tooltip",
@@ -748,11 +993,11 @@ test("default core patch descriptors are grouped and unique", () => {
   assert.ok(descriptors.every((descriptor) => descriptor.sourcePath.includes(`${path.sep}core${path.sep}`)));
   assert.equal(
     descriptors.find((descriptor) => descriptor.id === "package-desktop-name")?.phase,
-    "extracted-app",
+    "extracted-app:post-webview",
   );
   assert.equal(
     descriptors.find((descriptor) => descriptor.id === "linux-owl-feature-binding-fallback")?.phase,
-    "extracted-app",
+    "extracted-app:pre-webview",
   );
   assert.match(
     descriptors.find((descriptor) => descriptor.id === "linux-chrome-plugin-auto-install")?.sourcePath,
@@ -763,8 +1008,48 @@ test("default core patch descriptors are grouped and unique", () => {
     "optional",
   );
   assert.equal(
+    descriptors.find((descriptor) => descriptor.id === "linux-host-child-process-environment")
+      ?.ciPolicy,
+    "optional",
+  );
+  assert.equal(
+    descriptors.find((descriptor) => descriptor.id === "linux-terminal-host-environment")?.ciPolicy,
+    "optional",
+  );
+  assert.equal(
+    descriptors.find(
+      (descriptor) => descriptor.id === "linux-bundled-plugin-reconcile-stale-snapshot",
+    )?.ciPolicy,
+    "optional",
+  );
+  assert.equal(
+    descriptors.find((descriptor) => descriptor.id === "linux-x11-project-picker")?.ciPolicy,
+    "optional",
+  );
+  assert.equal(
     descriptors.find((descriptor) => descriptor.id === "linux-computer-use-native-desktop-apps")?.ciPolicy,
     "opt-in",
+  );
+  const computerUseInstallFlow = descriptors.find((descriptor) => descriptor.id === "linux-computer-use-install-flow");
+  assert.equal(
+    computerUseInstallFlow.pattern.test(
+      "app-initial~app-main~onboarding-page~hotkey-window-thread-page~quick-chat-window-page~chatg~gwqc41kz-current.js",
+    ),
+    true,
+  );
+  for (const legacyName of [
+    "app-initial~app-main~pull-request-code-review~onboarding-page~hotkey-window-thread-page~cha~b76hmflu-current.js",
+    "app-initial~app-main~remote-conversation-page~new-thread-panel-page~onboarding-page~appgen-~current.js",
+    "plugins-availability-current.js",
+    "use-plugin-install-flow-current.js",
+    "app-initial~app-main~remote-conversation-page~plugin-detail-page~new-thread-panel-page~current.js",
+    "app-initial~app-main~remote-conversation-page~pull-requests-page~plug~current.js",
+  ]) {
+    assert.equal(computerUseInstallFlow.pattern.test(legacyName), false, legacyName);
+  }
+  assert.equal(
+    descriptors.find((descriptor) => descriptor.id === "linux-terminal-user-path")?.ciPolicy,
+    "optional",
   );
   for (const id of [
     "linux-window-options",
@@ -779,11 +1064,96 @@ test("default core patch descriptors are grouped and unique", () => {
       `${id} should block upstream builds when it drifts`,
     );
   }
+  assert.equal(
+    descriptors.find((descriptor) => descriptor.id === "linux-external-open-env")?.ciPolicy,
+    "optional",
+    "external URL handoff drift should warn without blocking install/rebuild",
+  );
+  assert.equal(
+    descriptors.find((descriptor) => descriptor.id === "linux-workspace-root-open-targets")?.ciPolicy,
+    "optional",
+    "workspace-root open targets should not block app builds when upstream removes the File Manager insertion point",
+  );
 
   const descriptorOrder = new Map(descriptors.map((descriptor) => [descriptor.id, descriptor.order]));
   assert.ok(
     descriptorOrder.get("linux-native-titlebar") > descriptorOrder.get("linux-opaque-background"),
     "linux-native-titlebar must run after linux-opaque-background so it can reuse the inserted Linux background branch aliases",
+  );
+});
+
+test("app-server feature enablement descriptor matches current app-main chunks", () => {
+  const descriptor = corePatchDescriptors().find(
+    (descriptor) => descriptor.id === "linux-app-server-feature-enablement",
+  );
+
+  assert.ok(descriptor);
+  assert.equal(descriptor.pattern.test("app-main-DxUcMyo0.js"), true);
+  assert.equal(
+    descriptor.pattern.test("app-initial~app-main~automations-page-BfqUlSo6.js"),
+    true,
+  );
+  assert.equal(descriptor.pattern.test("experimental-feature-visibility-Bvp90zWX.js"), false);
+});
+
+test("window controls safe-area descriptor matches current app shell chunks", () => {
+  const descriptor = corePatchDescriptors().find(
+    (descriptor) => descriptor.id === "linux-window-controls-safe-area",
+  );
+
+  assert.ok(descriptor);
+  assert.equal(
+    descriptor.pattern.test(
+      "app-initial~app-main~appgen-settings-page~settings-page~skills-settings~plugins-settings~re~old.js",
+    ),
+    false,
+  );
+  assert.equal(
+    descriptor.pattern.test(
+      "app-initial~app-main~new-thread-panel-page~appgen-library-page~hotkey-window-thread-page~ho~iufn7mg3-current.js",
+    ),
+    true,
+  );
+  assert.equal(
+    descriptor.pattern.test(
+      "app-initial~app-main~hotkey-window-thread-page~thread-app-shell-chrome~header~remote-conver~current.js",
+    ),
+    false,
+  );
+});
+
+test("optional webview descriptors follow the current upstream chunk split", () => {
+  const descriptors = corePatchDescriptors();
+  const automationUpdate = descriptors.find(
+    (descriptor) => descriptor.id === "automation-update-eager-tool",
+  );
+  const tooltipCollision = descriptors.find(
+    (descriptor) => descriptor.id === "linux-tooltip-window-controls-collision",
+  );
+
+  assert.ok(automationUpdate);
+  assert.equal(
+    automationUpdate.pattern.test("app-initial~app-main~onboarding-page-CIkoyvFz.js"),
+    true,
+  );
+  assert.equal(
+    automationUpdate.pattern.test(
+      "app-initial~app-main~onboarding-page~hotkey-window-thread-page~quick-chat-window-page~chatg~legacy.js",
+    ),
+    false,
+  );
+  assert.ok(tooltipCollision);
+  assert.equal(
+    tooltipCollision.pattern.test(
+      "app-initial~app-main~hotkey-window-new-thread-page~hotkey-window-home-page~composer-utility-bar-D9zyQF1n.js",
+    ),
+    true,
+  );
+  assert.equal(
+    tooltipCollision.pattern.test(
+      "app-initial~app-main~onboarding-page~hotkey-window-thread-page~quick-chat-window-page~chatg~legacy.js",
+    ),
+    false,
   );
 });
 
@@ -851,11 +1221,12 @@ test("subagent nickname metadata descriptor follows upstream metadata bundle nam
 
 function trayBundleFixture() {
   return [
-    "async function Hw(e){return process.platform!==`win32`&&process.platform!==`darwin`?null:(zw=!0,Lw??Rw??(Rw=(async()=>{let r=await Ww(e.buildFlavor,e.repoRoot),i=new n.Tray(r.defaultIcon);return i})()))}",
-    "async function Ww(e,t){if(process.platform===`darwin`){return null}let r=process.platform===`win32`?`.ico`:`.png`,a=Nw(e,process.platform),o=[...n.app.isPackaged?[(0,i.join)(process.resourcesPath,`${a}${r}`)]:[],(0,i.join)(t,`electron`,`src`,`icons`,`${a}${r}`)];for(let e of o){let t=n.nativeImage.createFromPath(e);if(!t.isEmpty())return{defaultIcon:t,chronicleRunningIcon:null}}return{defaultIcon:await n.app.getFileIcon(process.execPath,{size:process.platform===`win32`?`small`:`normal`}),chronicleRunningIcon:null}}",
-    "var pb=class{trayMenuThreads={runningThreads:[],unreadThreads:[],pinnedThreads:[],recentThreads:[],usageLimits:[]};constructor(){this.tray={on(){},setContextMenu(){},popUpContextMenu(){}};this.onTrayButtonClick=()=>{};this.tray.on(`click`,()=>{this.onTrayButtonClick()}),this.tray.on(`right-click`,()=>{this.openNativeTrayMenu()})}async handleMessage(e){switch(e.type){case`tray-menu-threads-changed`:this.trayMenuThreads=e.trayMenuThreads;return}}openNativeTrayMenu(){this.updateChronicleTrayIcon();let e=n.Menu.buildFromTemplate(this.getNativeTrayMenuItems());e.once(`menu-will-show`,()=>{this.isNativeTrayMenuOpen=!0}),e.once(`menu-will-close`,()=>{this.isNativeTrayMenuOpen=!1,this.handleNativeTrayMenuClosed()}),this.tray.popUpContextMenu(e)}updateChronicleTrayIcon(){}getNativeTrayMenuItems(){return[]}}",
-    "v&&k.on(`close`,e=>{this.persistPrimaryWindowBounds(k,f);let t=this.getPrimaryWindows(f).some(e=>e!==k);if(process.platform===`win32`&&!this.isAppQuitting&&this.options.canHideLastLocalWindowToTray?.()===!0&&!t){e.preventDefault(),k.hide();return}if(process.platform===`darwin`&&!this.isAppQuitting&&!t){e.preventDefault(),k.hide()}});",
-    "let E=process.platform===`win32`;E&&oe();",
+    "async function Hw(e){return process.platform!==`win32`&&process.platform!==`darwin`?null:(zw=!0,Lw??Rw??(Rw=(async()=>{let r=await Ww(e.buildFlavor,e.appBrand,e.repoRoot),i=new n.Tray(r.defaultIcon);return i})()))}",
+    "async function Ww(e,t,i){if(process.platform===`darwin`){return null}let r=K9(e,t,i);return r==null?{defaultIcon:await n.app.getFileIcon(process.execPath,{size:`small`}),chronicleRunningIcon:null}:{defaultIcon:r,chronicleRunningIcon:null}}",
+    "function K9(e,t,r){let a=[(0,i.join)(r,`electron`,`src`,`icons`,`tray.png`)];for(let e of a){let t=n.nativeImage.createFromPath(e);if(!t.isEmpty())return t}return null}",
+    "var pb=class{nativeTrayClickSuppressionReason=null;clearNativeTrayClickSuppressionTimeout=null;chronicleTrayIconRefreshInterval=null;chronicleTrayIconState=`default`;isNativeTrayMenuOpen=!1;trayMenuThreads={runningThreads:[],unreadThreads:[],pinnedThreads:[],recentThreads:[],usageLimits:[]};constructor(){this.tray={on(){},setContextMenu(){},popUpContextMenu(){}};this.onTrayButtonClick=()=>{};this.tray.on(`click`,()=>{this.onTrayButtonClick()}),this.tray.on(`right-click`,()=>{this.openNativeTrayMenu()})}async handleMessage(e){switch(e.type){case`tray-menu-threads-changed`:this.trayMenuThreads=e.trayMenuThreads;return}}openNativeTrayMenu(){this.updateChronicleTrayIcon();let e=n.Menu.buildFromTemplate(this.getNativeTrayMenuItems());e.once(`menu-will-show`,()=>{this.isNativeTrayMenuOpen=!0}),e.once(`menu-will-close`,()=>{this.isNativeTrayMenuOpen=!1,this.handleNativeTrayMenuClosed()}),this.tray.popUpContextMenu(e)}updateChronicleTrayIcon(){}getNativeTrayMenuItems(){return[]}}",
+    "v&&k.on(`close`,e=>{this.persistPrimaryWindowBounds(k);let t=this.getPrimaryWindows().some(e=>e!==k);if(process.platform===`win32`&&!this.isAppQuitting&&this.options.canHideLastWindowToTray?.()===!0&&!t){e.preventDefault(),k.hide();return}if(process.platform===`darwin`&&!this.isAppQuitting&&!t){e.preventDefault(),k.hide()}});",
+    "let oe=async()=>{O=!0;try{await Hw({appBrand:a.U(),buildFlavor:b,repoRoot:j.repoRoot})}catch(e){O=!1,v.reportNonFatal(e instanceof Error?e:`Failed to set up tray`,{kind:`tray-setup-failed`,tags:{errorType:`tray-setup-failed`}}),N.ensureWindow()}};E&&oe();",
   ].join("");
 }
 
@@ -887,7 +1258,7 @@ function beforeQuitConfirmationBundleFixture() {
 
 function willQuitDrainBundleFixture() {
   return [
-    "n.app.on(`will-quit`,e=>{if(g=!0,!h){if(i.shouldSkipDrainBeforeQuit()){mB({hotkeyWindowLifecycleManager:c,globalDictationLifecycleManager:l,flushAndDisposeContexts:d,disposables:f});return}e.preventDefault(),h=!0,c.dispose(),l.dispose(),Promise.all([...u.values()].map(e=>e.flush())).finally(()=>{d(),f.dispose(),n.app.quit()})}});",
+    "n.app.on(`will-quit`,e=>{if(g=!0,!h){if(i.shouldSkipDrainBeforeQuit()){mB({hotkeyWindowLifecycleManager:c,globalDictationLifecycleManager:l,flushAndDisposeContexts:d,disposables:f});return}e.preventDefault(),h=!0,c.dispose(),l.dispose(),Promise.all([u.flush(),p.flush()]).finally(()=>{d(),f.dispose(),n.app.quit()})}});",
   ].join("");
 }
 
@@ -903,6 +1274,22 @@ function currentPluginGateBundleFixture() {
     "var lt=`browser-use`,ut=`chrome`,dt=`chrome-internal`,xt=`chrome-dev`,ft=`computer-use`,pt=`latex-tectonic`;",
     "var Kr=[{forceReload:!0,installWhenMissing:!0,name:lt,isAvailable:({features:e})=>e.inAppBrowserUseAllowed,migrate:rr},{forceReload:!0,name:xt,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,env:t,features:n})=>Ar(e,t)&&n.externalBrowserUseAllowed},{forceReload:!0,name:dt,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,env:t,features:n})=>jr(e,t)&&n.externalBrowserUseAllowed},{forceReload:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,features:t})=>t.externalBrowserUseAllowed&&$n(e)},{name:ft,isAvailable:({features:e,platform:t})=>t===`darwin`&&e.computerUse,migrate:vr},{forceReload:!0,installWhenMissing:!0,name:ft,isAvailable:({buildFlavor:e,features:n,platform:r})=>t.T.isInternal(e)&&r===`win32`&&n.computerUse},{name:pt,isAvailable:()=>!0}];",
   ].join("");
+}
+
+function currentChromePluginGateBundleFixture() {
+  return [
+    "var o={c:`chrome`,s:`chrome-dev`},n={Cs:e=>!0};",
+    "var Kr=[{forceReload:!0,name:o.s,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,env:t,features:r})=>Ar(e,t)&&r.externalBrowserUseAllowed},{forceReload:!0,name:o.c,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,features:t})=>t.externalBrowserUseAllowed&&n.Cs(e)}];",
+  ].join("");
+}
+
+function currentBundledPluginCopyBundleFixture() {
+  return (
+    "let p=require(`node:path`);" +
+    "let m=require(`node:fs/promises`);m={default:m};" +
+    "let g={default:{platform:process.platform}};" +
+    "async function fl(e,t){if(g.default.platform===`darwin`){return}if(g.default.platform!==`win32`){await m.default.cp(e,t,{recursive:!0,verbatimSymlinks:!0});return}}"
+  );
 }
 
 function chromeNativeHostRuntimeBundleFixture() {
@@ -930,6 +1317,13 @@ function currentChromeNativeHostRuntimeBundleFixture() {
   ].join("");
 }
 
+function currentBrowserUseTrustedHashesRuntimeBuilderFixture() {
+  return "\"use strict\";let l=require(`node:fs`),s=require(`node:path`),u=require(`node:crypto`);function build({codexHome:t,nodePath:i,nodeReplPath:a,trustedBrowserClientSha256s:h=[],shouldUseWslPaths:f}){return h}";
+}
+
+const currentBrowserUseTrustedHashesInsertionRegex =
+  /trustedBrowserClientSha256s:h=\[\],shouldUseWslPaths:f\}\)\{h=codexLinuxTrustedBrowserClientSha256s\(h\);return h/;
+
 function electron42BrowserUseRuntimeResolverBundleFixture() {
   return [
     "let s=require(`node:path`),l=require(`node:fs`);",
@@ -948,6 +1342,26 @@ function currentChromePluginAppServerRuntimeBundleFixture() {
   ].join("");
 }
 
+function currentChromePluginCodexAppServerRuntimeBundleFixture() {
+  return [
+    "let r=require(`node:path`),o=require(`node:fs`);",
+    "async function VH(e){let t=_U(e);if(t==null)throw Error(`Missing bundled Electron Codex runtime required to sync Chrome plugin app server for ${e.nativeHostName} (resourcesPath: ${e.resourcesPath??`<none>`}).`);return AV({codexCliPath:t,codexHome:e.codexHome,nativeHostName:e.nativeHostName})}",
+    "function _U(e){return tM(e.resourcesPath)??vU(e.devRuntimeRepoRoot,[`extension`,`bin`,process.platform===`win32`?`codex.exe`:`codex`])}function vU(e,t){return null}function tM(e){return null}async function AV({codexCliPath:e}){return{codexCliPath:e}}",
+  ].join("");
+}
+
+function currentChromePluginIsolatedAppServerRuntimeBundleFixture() {
+  const runtime = currentChromePluginCodexAppServerRuntimeBundleFixture().replace(
+    "async function AV({codexCliPath:e}){return{codexCliPath:e}}",
+    "async function AV(e){let t=e.nativeHostName===nU,n=e.codexCliPath,r=process.env.ISSUE805_ISOLATED_CLI;o.copyFileSync(n,r);o.chmodSync(r,448);return r}",
+  );
+  return [
+    "async function decoy(e){let t=e.nativeHostName===nU;return `decoy`}",
+    "var tU=`.plugin-appserver`,nU=`com.openai.codexextension`;",
+    runtime,
+  ].join("");
+}
+
 function computerUseFeatureBundleFixture() {
   return "function me(e,{env:t=process.env,platform:n=process.platform}={}){return n!==`win32`||t.CODEX_ELECTRON_ENABLE_WINDOWS_COMPUTER_USE!==`1`?e:{...e,computerUse:!0,computerUseNodeRepl:!0}}";
 }
@@ -962,10 +1376,6 @@ function computerUseRendererAvailabilityBundleFixture() {
     "function LS(e){let t=(0,q.c)(10),{hostId:n,featureName:r,defaultEnabled:i}=e,a=i===void 0?!0:i,{data:o,isLoading:s}=N(Wa,n),c;t[0]===o?c=t[1]:(c=o===void 0?[]:o,t[0]=o,t[1]=c);let l=c,u;if(t[2]!==r||t[3]!==l){let e;t[5]===r?e=t[6]:(e=e=>e.name===r,t[5]=r,t[6]=e),u=l.find(e),t[2]=r,t[3]=l,t[4]=u}else u=t[4];let d=u?.enabled??a,f;return t[7]!==s||t[8]!==d?(f={enabled:d,isLoading:s},t[7]=s,t[8]=d,t[9]=f):f=t[9],f}",
     "function RS(e){let t=(0,q.c)(8),{enabled:n,hostId:r,isHostLocal:i}=e,a=n===void 0?!0:n,o=r===void 0?R:r,s=Kn(),{isLoading:c,platform:l}=Hr(),u=Vn(`1506311413`),d;t[0]===o?d=t[1]:(d={featureName:`computer_use`,hostId:o},t[0]=o,t[1]=d);let f=LS(d),p;t[2]===l?p=t[3]:(p=hae(l),t[2]=l,t[3]=p);let m=a&&i&&s===`electron`&&u&&(c||p),h=m&&!c&&f.enabled&&!f.isLoading,g=m&&f.isLoading,_=m&&(c||f.isLoading),v;return t[4]!==h||t[5]!==g||t[6]!==_?(v={available:h,isFetching:g,isLoading:_},t[4]=h,t[5]=g,t[6]=_,t[7]=v):v=t[7],v}",
   ].join("");
-}
-
-function computerUseInstallFlowBundleFixture() {
-  return "function Qe({forceReloadPlugins:e,hostId:t}){let ne=f({featureName:`computer_use`,hostId:t}),re=!ne.isLoading&&ne.enabled,[L,R]=(0,Z.useState)({});return re}";
 }
 
 function chromeExtensionStatusBundleFixture() {
@@ -1055,20 +1465,18 @@ function runSettingsPersistence(patchedSource, env, key, value) {
 
 function keybindsIndexBundleFixture() {
   return [
+    'import{n as routeModule,s as routeToESM}from"./rolldown-runtime-A.js";',
+    'import{I as routeJsxFactory,R as routeReactFactory}from"./shared-runtime-A.js";',
+    "function Z(e){let r=(0,RouteReact.lazy)(e);function SettingsRouteWrapper(){let t=(0,RouteReact.useState)(null);return (0,RouteJsx.jsx)(r,{children:t})}return SettingsRouteWrapper}",
+    "var RouteReact,RouteJsx;routeModule(()=>{RouteReact=routeToESM(routeReactFactory(),1),RouteJsx=routeJsxFactory()})();",
     "var Kge={\"general-settings\":xh,appearance:Pf,\"git-settings\":t1};",
-    "var i_e={\"general-settings\":(0,Z.lazy)(()=>s(()=>import(`./general-settings-DsLl9t6Z.js`),[],import.meta.url)),appearance:(0,Z.lazy)(()=>s(()=>import(`./appearance.js`),[],import.meta.url))};",
+    "var i_e={\"general-settings\":Z(async()=>(await s(async()=>{let{GeneralSettings:e}=await import(`./general-settings-DsLl9t6Z.js`);return{GeneralSettings:e}},[],import.meta.url)).GeneralSettings),appearance:Z(async()=>(await s(async()=>{let{Appearance:e}=await import(`./appearance.js`);return{Appearance:e}},[],import.meta.url)).Appearance)};",
     "qge=[`general-settings`,`appearance`,`connections`,`git-settings`,`usage`];",
     "Jge=[{key:`app`,heading:H7.appHeading,slugs:[`general-settings`,`appearance`,`connections`,`git-settings`,`usage`]}];",
     "switch(e){case`appearance`:case`git-settings`:case`worktrees`:case`local-environments`:case`data-controls`:case`environments`:return l===`electron`;}",
     "switch(e){case`usage`:k=g;break bb0;case`appearance`:case`general-settings`:case`agent`:case`git-settings`:case`account`:case`data-controls`:case`personalization`:k=!1;break bb0;}",
+    "export{SettingsRouteWrapper};",
   ].join("");
-}
-
-function keybindsIndexBundleWithLazyAliasDriftFixture() {
-  return keybindsIndexBundleFixture().replaceAll(
-    "(0,Z.lazy)(()=>s(",
-    "(0,R.lazy)(()=>q(",
-  );
 }
 
 function settingsSharedBundleFixture() {
@@ -1091,12 +1499,16 @@ function settingsSharedBundleWithDriftingJsxAliasFixture() {
 
 function linuxDesktopRouteBundleFixture() {
   return [
+    'import{n as routeModule,s as routeToESM}from"./rolldown-runtime-A.js";',
+    'import{I as routeJsxFactory,R as routeReactFactory}from"./shared-runtime-A.js";',
+    "function $(e){let r=(0,RouteReact.lazy)(e);function SettingsRouteWrapper(){let t=(0,RouteReact.useState)(null);return (0,RouteJsx.jsx)(r,{children:t})}return SettingsRouteWrapper}",
+    "var RouteReact,RouteJsx;routeModule(()=>{RouteReact=routeToESM(routeReactFactory(),1),RouteJsx=routeJsxFactory()})();",
     "var DE={",
-    '"read-aloud-settings":(0,$.lazy)(()=>Xr(()=>import(`./general-settings-read.js`),[],import.meta.url)),',
-    '"general-settings":(0,$.lazy)(()=>Xr(()=>import(`./general-settings-A.js`),[],import.meta.url)),',
-    "profile:(0,$.lazy)(()=>Xr(()=>import(`./profile-A.js`),[],import.meta.url)),",
-    '"keyboard-shortcuts":(0,$.lazy)(()=>Xr(()=>import(`./keyboard-shortcuts-settings-A.js`),[],import.meta.url))',
+    '"general-settings":$(async()=>(await Xr(async()=>{let{GeneralSettings:e}=await import(`./general-settings-A.js`);return{GeneralSettings:e}},[],import.meta.url)).GeneralSettings),',
+    "profile:$(async()=>(await Xr(async()=>{let{Profile:e}=await import(`./profile-A.js`);return{Profile:e}},[],import.meta.url)).Profile),",
+    '"keyboard-shortcuts":$(async()=>(await Xr(async()=>{let{KeyboardShortcutsSettings:e}=await import(`./keyboard-shortcuts-settings-A.js`);return{KeyboardShortcutsSettings:e}},[],import.meta.url)).KeyboardShortcutsSettings)',
     "};",
+    "export{SettingsRouteWrapper};",
   ].join("");
 }
 
@@ -1110,8 +1522,8 @@ function linuxDesktopNavigationBundleFixture() {
   ].join("");
 }
 
-function createNativeKeyboardShortcutsSettingsFixture() {
-  const extractedDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-native-shortcuts-"));
+function createModernNativeKeyboardShortcutsSettingsFixture() {
+  const extractedDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-modern-native-shortcuts-"));
   const assetsDir = path.join(extractedDir, "webview", "assets");
   fs.mkdirSync(assetsDir, { recursive: true });
 
@@ -1119,32 +1531,187 @@ function createNativeKeyboardShortcutsSettingsFixture() {
     fs.writeFileSync(path.join(assetsDir, name), source, "utf8");
   };
 
-  writeAsset("chunk-A.js", "");
+  writeAsset("rolldown-runtime-A.js", "function n(e){return e}function s(e){return e}export{n,s};");
   writeAsset(
-    "jsx-runtime-A.js",
-    'import{s as s}from"./chunk-A.js";function n(){return{}}function t(){return{jsx(){},jsxs(){},Fragment:"Fragment"}}react.transitional.element;export{n,t};',
+    "shared-runtime-A.js",
+    'import{s as s}from"./rolldown-runtime-A.js";function jsxFactory(){return{jsx(){},jsxs(){},Fragment:"Fragment"}}function reactFactory(){return{useState(){},useCallback(){},useEffect(){}}}function memoCache(){}export{jsxFactory as I,memoCache as L,reactFactory as R};',
   );
   writeAsset(
     "setting-storage-A.js",
     'async function requestCodex(...args){let[request]=args,{params:params,source:source}=request;return send("vscode://codex/",params)}export{requestCodex as z};',
   );
-  writeAsset("general-settings-A.js", "hotkey-window-hotkey-state");
-  writeAsset("toggle-A.js", "export{t};");
+  writeAsset(
+    "toggle-A.js",
+    'function t({checked,disabled,onChange,ariaLabel}){return {role:"switch","aria-checked":checked,"aria-label":ariaLabel,disabled,onClick:()=>onChange(!checked)}}export{t};',
+  );
   writeAsset(
     "settings-row-A.js",
-    "function a(e){let{label:t,description:n,control:r}=e;return null}function s(e){let{label:t,children:n}=e;return null}export{s as n,a as r};",
+    "function a(e){let{label:t,description:n,control:r}=e;return null}export{a as r};",
   );
   writeAsset("settings-content-layout-A.js", "export{n,r,t};");
   writeAsset("settings-group-A.js", "export{n,t};");
   writeAsset("settings-surface-A.js", "export{t};");
   writeAsset(
-    "settings-sections-A.js",
-    "var e=`general-settings`,t=`mcp-settings`,n=[{slug:e},{slug:`appearance`},{slug:`keyboard-shortcuts`}];",
+    "keyboard-shortcuts-settings-A.js",
+    [
+      'import{n as __module,s as __toESM}from"./rolldown-runtime-A.js";',
+      'import{I as __jsxFactory,L as __memoCache,R as __reactFactory}from"./shared-runtime-A.js";',
+      "function KeyboardShortcutsSettings(){let t=(0,React.useState)(null);return (0,$.jsx)(`div`,{children:t})}",
+      "var React,$;__module(()=>{React=__toESM(__reactFactory(),1),$=__jsxFactory()})();",
+      "slug:`keyboard-shortcuts`;export{KeyboardShortcutsSettings};",
+    ].join(""),
   );
-  writeAsset("settings-shared-A.js", settingsSharedBundleFixture());
-  writeAsset("app-main-A.js", linuxDesktopRouteBundleFixture());
-  writeAsset("settings-page-A.js", linuxDesktopNavigationBundleFixture());
-  writeAsset("keyboard-shortcuts-settings-A.js", "export default function KeyboardShortcutsSettings(){}");
+  writeAsset(
+    "settings-page-A.js",
+    [
+      'import{n as routeModule,s as routeToESM}from"./rolldown-runtime-A.js";',
+      'import{I as routeJsxFactory,R as routeReactFactory}from"./shared-runtime-A.js";',
+      "function DecoyState(){let t=(0,DecoyReact.useState)(null);return t}",
+      "function DecoyView(){return (0,DecoyJsx.jsx)(`div`,{})}",
+      "var DecoyReact,DecoyJsx;routeModule(()=>{DecoyReact=routeToESM(routeReactFactory(),1)});routeModule(()=>{DecoyJsx=routeJsxFactory()})();",
+      "function Ya(e){let r=(0,RouteReact.lazy)(e);function SettingsRouteWrapper(){let t=(0,RouteReact.useState)(null);return (0,RouteJsx.jsx)(r,{children:t})}return SettingsRouteWrapper}",
+      "var RouteReact,RouteJsx;routeModule(()=>{RouteReact=routeToESM(routeReactFactory(),1),RouteJsx=routeJsxFactory()})();",
+      'var Zn={"general-settings":Ya(async()=>(await Pr(async()=>{let{GeneralSettings:e}=await import(`./general-settings-A.js`);return{GeneralSettings:e}},[],import.meta.url)).GeneralSettings),"keyboard-shortcuts":Ya(async()=>(await Pr(async()=>{let{KeyboardShortcutsSettings:e}=await import(`./keyboard-shortcuts-settings-A.js`);return{KeyboardShortcutsSettings:e}},[],import.meta.url)).KeyboardShortcutsSettings)};',
+      'var Hn={"general-settings":wt,"keyboard-shortcuts":xn};',
+      "var Wn=[`general-settings`,`profile`,`keyboard-shortcuts`];",
+      "var Qn=[{key:`app`,slugs:[`general-settings`,`profile`,`keyboard-shortcuts`]}];",
+      "function visible(e){switch(e.slug){case`general-settings`:case`agent`:case`personalization`:return!0;case`keyboard-shortcuts`:return!0}}",
+      "function loading(H){let W=!1;if(H)bb0:switch(H.slug){case`appearance`:case`general-settings`:case`agent`:case`git-settings`:case`data-controls`:case`personalization`:W=!1;break bb0;case`keyboard-shortcuts`:W=!1;break bb0}return W}",
+      "export{SettingsRouteWrapper};",
+    ].join(""),
+  );
+  writeAsset(
+    "app-initial~app-main~page~remote-conversation-page~new-thread-panel-page~settings-page~shared-A.js",
+    settingsSharedBundleFixture(),
+  );
+  writeAsset(
+    "app-initial~app-main~remote-conversation-page~settings-page~hotkey-window-thread-page~mcp-s-A.js",
+    [
+      "var c,l=e((()=>{c=`general-settings.import.profile.keyboard-shortcuts.codex-micro.appshots.appearance.pets.agent.git-settings.data-controls.cloud-settings.cloud-environments.code-review.personalization.usage.browser-use.computer-use.local-environments.worktrees.environments.mcp-settings.hooks-settings.connections.plugins-settings.skills-settings`.split(`.`)})),u,d,f,p=e((()=>{",
+      "l(),u=`general-settings`,d=function(e){return e.String=`string`,e.Array=`array`,e.Record=`record`,e}({}),",
+      "f=[{slug:`general-settings`},{slug:`import`},{slug:`profile`},{slug:`appearance`},{slug:`pets`},{slug:`appshots`},{slug:`git-settings`},{slug:`connections`},{slug:`cloud-settings`},{slug:`cloud-environments`},{slug:`code-review`},{slug:`local-environments`},{slug:`worktrees`},{slug:`agent`},{slug:`personalization`},{slug:`keyboard-shortcuts`},{slug:`usage`},{slug:`browser-use`},{slug:`computer-use`},{slug:`mcp-settings`},{slug:`hooks-settings`},{slug:`plugins-settings`},{slug:`skills-settings`},{slug:`data-controls`}]",
+      "}));",
+    ].join(""),
+  );
+
+  return { extractedDir, assetsDir };
+}
+
+function evaluateGeneratedSettingsModule(source, bindings, exportExpression) {
+  const executable = source
+    .replace(/import\{[^}]*\}from"[^"]+";/g, "")
+    .replace(/export\{[^}]*\};?/g, "")
+    .replace(/\/\/# sourceMappingURL=.*$/gm, "");
+  const context = vm.createContext({ ...bindings });
+  vm.runInContext(`${executable}\nglobalThis.__generatedExport=${exportExpression};`, context);
+  return context.__generatedExport;
+}
+
+function renderGeneratedSettingsTree(element, Component) {
+  if (element == null || typeof element === "boolean") {
+    return [];
+  }
+  if (Array.isArray(element)) {
+    return element.flatMap((child) => renderGeneratedSettingsTree(child, Component));
+  }
+  if (typeof element !== "object") {
+    return [element];
+  }
+  if (typeof element.type === "function") {
+    const rendered = element.type.prototype instanceof Component
+      ? new element.type(element.props).render()
+      : element.type(element.props);
+    return renderGeneratedSettingsTree(rendered, Component);
+  }
+  return [
+    element,
+    ...renderGeneratedSettingsTree(element.props?.children, Component),
+  ];
+}
+
+// The current route map can be hoisted into a hashed app chunk while the
+// settings-page bundle carries only navigation metadata.
+function createSplitRouteNativeKeyboardShortcutsSettingsFixture({
+  routeChunkName = "app-initial~app-main~automations-page-A.js",
+} = {}) {
+  const extractedDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-split-route-shortcuts-"));
+  const assetsDir = path.join(extractedDir, "webview", "assets");
+  fs.mkdirSync(assetsDir, { recursive: true });
+
+  const writeAsset = (name, source = "") => {
+    fs.writeFileSync(path.join(assetsDir, name), source, "utf8");
+  };
+
+  writeAsset("rolldown-runtime-A.js", "function n(e){return e}function s(e){return e}export{n,s};");
+  writeAsset(
+    "shared-runtime-A.js",
+    'import{s as s}from"./rolldown-runtime-A.js";function jsxFactory(){return{jsx(){},jsxs(){},Fragment:"Fragment"}}function reactFactory(){return{useState(){},useCallback(){},useEffect(){}}}function memoCache(){}export{jsxFactory as I,memoCache as L,reactFactory as R};',
+  );
+  writeAsset(
+    "setting-storage-A.js",
+    'async function requestCodex(...args){let[request]=args,{params:params,source:source}=request;return send("vscode://codex/",params)}export{requestCodex as z};',
+  );
+  writeAsset(
+    "toggle-A.js",
+    'function t({checked,disabled,onChange,ariaLabel}){return {role:"switch","aria-checked":checked,"aria-label":ariaLabel,disabled,onClick:()=>onChange(!checked)}}export{t};',
+  );
+  writeAsset(
+    "settings-row-A.js",
+    "function a(e){let{label:t,description:n,control:r}=e;return null}export{a as r};",
+  );
+  writeAsset("settings-content-layout-A.js", "export{n,r,t};");
+  writeAsset("settings-group-A.js", "export{n,t};");
+  writeAsset("settings-surface-A.js", "export{t};");
+  writeAsset(
+    "keyboard-shortcuts-settings-A.js",
+    [
+      'import{n as __module,s as __toESM}from"./rolldown-runtime-A.js";',
+      'import{I as __jsxFactory,L as __memoCache,R as __reactFactory}from"./shared-runtime-A.js";',
+      "function KeyboardShortcutsSettings(){let t=(0,React.useState)(null);return (0,$.jsx)(`div`,{children:t})}",
+      "var React,$;__module(()=>{React=__toESM(__reactFactory(),1),$=__jsxFactory()})();",
+      "slug:`keyboard-shortcuts`;export{KeyboardShortcutsSettings};",
+    ].join(""),
+  );
+  // The icon/navigation bundle: no lazy route map lives here, only the slug -> icon
+  // component map plus the order, group, visibility, and loading metadata.
+  writeAsset(
+    "settings-page-A.js",
+    [
+      'var Hn={"general-settings":wt,"keyboard-shortcuts":xn};',
+      "var Wn=[`general-settings`,`profile`,`keyboard-shortcuts`];",
+      "var Qn=[{key:`app`,slugs:[`general-settings`,`profile`,`keyboard-shortcuts`]}];",
+      "function visible(e){switch(e.slug){case`general-settings`:case`agent`:case`personalization`:return!0;case`keyboard-shortcuts`:return!0}}",
+      "function loading(H){let W=!1;if(H)bb0:switch(H.slug){case`appearance`:case`general-settings`:case`agent`:case`git-settings`:case`data-controls`:case`personalization`:W=!1;break bb0;case`keyboard-shortcuts`:W=!1;break bb0}return W}",
+    ].join(""),
+  );
+  // The hoisted async route map is assigned inside an IIFE body.
+  writeAsset(
+    routeChunkName,
+    [
+      'import{n as routeModule,s as routeToESM}from"./rolldown-runtime-A.js";',
+      'import{I as routeJsxFactory,R as routeReactFactory}from"./shared-runtime-A.js";',
+      "function Ya(e){let r=(0,RouteReact.lazy)(e);function SettingsRouteWrapper(){let t=(0,RouteReact.useState)(null);return (0,RouteJsx.jsx)(r,{children:t})}return SettingsRouteWrapper}",
+      "var RouteReact,RouteJsx;routeModule(()=>{RouteReact=routeToESM(routeReactFactory(),1),RouteJsx=routeJsxFactory()})();",
+      "var Bn,Ya,Pr,FW,Xn=e((()=>{Bn=s(),Ya=t(f(),1),Pr=o(),",
+      'FW={"general-settings":Ya(async()=>(await Pr(async()=>{let{GeneralSettings:e}=await import(`./general-settings-A.js`);return{GeneralSettings:e}},[],import.meta.url)).GeneralSettings),',
+      '"keyboard-shortcuts":Ya(async()=>(await Pr(async()=>{let{KeyboardShortcutsSettings:e}=await import(`./keyboard-shortcuts-settings-A.js`);return{KeyboardShortcutsSettings:e}},[],import.meta.url)).KeyboardShortcutsSettings)}',
+      "}));",
+      "export{SettingsRouteWrapper};",
+    ].join(""),
+  );
+  writeAsset(
+    "app-initial~app-main~page~remote-conversation-page~new-thread-panel-page~settings-page~shared-A.js",
+    settingsSharedBundleFixture(),
+  );
+  writeAsset(
+    "app-initial~app-main~remote-conversation-page~settings-page~hotkey-window-thread-page~mcp-s-A.js",
+    [
+      "var c,l=e((()=>{c=`general-settings.import.profile.keyboard-shortcuts.codex-micro.appshots.appearance.pets.agent.git-settings.data-controls.cloud-settings.cloud-environments.code-review.personalization.usage.browser-use.computer-use.local-environments.worktrees.environments.mcp-settings.hooks-settings.connections.plugins-settings.skills-settings`.split(`.`)})),u,d,f,p=e((()=>{",
+      "l(),u=`general-settings`,d=function(e){return e.String=`string`,e.Array=`array`,e.Record=`record`,e}({}),",
+      "f=[{slug:`general-settings`},{slug:`import`},{slug:`profile`},{slug:`appearance`},{slug:`pets`},{slug:`appshots`},{slug:`git-settings`},{slug:`connections`},{slug:`cloud-settings`},{slug:`cloud-environments`},{slug:`code-review`},{slug:`local-environments`},{slug:`worktrees`},{slug:`agent`},{slug:`personalization`},{slug:`keyboard-shortcuts`},{slug:`usage`},{slug:`browser-use`},{slug:`computer-use`},{slug:`mcp-settings`},{slug:`hooks-settings`},{slug:`plugins-settings`},{slug:`skills-settings`},{slug:`data-controls`}]",
+      "}));",
+    ].join(""),
+  );
 
   return { extractedDir, assetsDir };
 }
@@ -1210,45 +1777,22 @@ function currentBootstrapUpdaterBundleWithAppUpdateStateBroadcastFixture() {
   ].join("");
 }
 
-function avatarOverlayBundleFixture() {
+function latestAvatarOverlayBundleFixture() {
   return [
-    "let u=require(`node:child_process`);",
-    "var rV=`/avatar-overlay`,zB={width:356,height:320},oV={width:112,height:121},sV={width:276,height:131};",
-    "var fV=class{window=null;openingWindowPromise=null;anchor=pV({x:0,y:0,...zB},oV);dragState=null;layout=null;mascotSize=oV;momentumTimer=null;mousePassthroughEnabled=!1;placement=`top-end`;pointerInteractive=!1;rendererReady=!1;traySize=null;",
-    "constructor(e,t){this.windowManager=e,this.globalState=t}",
-    "isOpen(){let e=this.window;return e!=null&&!e.isDestroyed()&&e.isVisible()}",
-    "startDrag(e,{pointerWindowX:t,pointerWindowY:r}){let i=this.window;if(i==null||i.isDestroyed()||i.webContents.id!==e)return;this.cancelMomentum();let a=this.getLayout(i);this.dragState={pointerAnchorX:t-a.mascot.left,pointerAnchorY:r-a.mascot.top,hasMoved:!1,displayBounds:n.screen.getDisplayNearestPoint(n.screen.getCursorScreenPoint()).bounds}}",
-    "moveDrag(e){let t=this.window;t==null||t.isDestroyed()||t.webContents.id!==e||this.dragState==null||(this.cancelMomentum(),this.dragState.hasMoved=!0,this.moveDragToCurrentCursor(t))}",
-    "endDrag(e){let t=this.window;t==null||t.isDestroyed()||t.webContents.id!==e||(this.dragState?.hasMoved&&this.moveDragToCurrentCursor(t),this.dragState=null,this.reclampWindowToVisibleDisplay({shouldPersist:!0}))}",
-    "setElementSize(e,{mascot:t,tray:n}){let r=this.window;r==null||r.isDestroyed()||r.webContents.id!==e||(this.cancelMomentum(),this.anchor={...this.anchor,width:t.width,height:t.height},this.mascotSize=t,this.traySize=n,this.applyLayout(r))}",
-    "async createWindow(e){let t=await this.windowManager.createWindow({title:n.app.getName(),width:zB.width,height:zB.height,appearance:`avatarOverlay`,focusable:!1,show:!1,initialRoute:rV,hostId:this.windowManager.getHostIdForWebContents(e)??`local`});return this.window=t,this.rendererReady=this.windowManager.isWebContentsReady(t.webContents.id),this.dragState=null,this.layout=null,this.mascotSize=oV,this.mousePassthroughEnabled=!1,this.placement=`top-end`,this.pointerInteractive=!1,this.traySize=null,t.once(`ready-to-show`,()=>{t.isDestroyed()||!this.rendererReady||(this.showWindow(t),this.applyPointerInteractivityPolicy())}),t.on(`closed`,()=>{this.window===t&&(this.cancelMomentum(),this.window=null,this.dragState=null,this.layout=null,this.rendererReady=!1,this.pointerInteractive=!1,this.mousePassthroughEnabled=!1,this.globalState.set(Te,!1),this.broadcastOpenState())}),t}",
-    "applyLayout(e,t=n.screen.getDisplayNearestPoint(hV(this.anchor)).bounds){if(e.isDestroyed())return;let r=UB({anchor:this.anchor,displayBounds:t,mascotSize:this.mascotSize,previousPlacement:this.placement,traySize:this.traySize??sV});this.anchor=r.anchor,this.layout=r,this.placement=r.placement,this.setWindowBounds(e,r.windowBounds),this.sendLayoutToRenderer(e)}getLayout(e){if(this.layout??this.applyLayout(e),this.layout==null)throw Error(`Expected avatar overlay layout`);return this.layout}",
-    "showWindow(e){if(e.isDestroyed())return;let t=this.isOpen();e.moveTop(),e.showInactive(),!t&&this.isOpen()&&this.broadcastOpenState()}showWindowIfReady(e){!this.rendererReady||(this.showWindow(e),this.applyPointerInteractivityPolicy())}broadcastOpenState(){this.windowManager.sendMessageToAllRegisteredWindows({type:`avatar-overlay-open-state-changed`,isOpen:this.isOpen()})}",
+    "let c=require(`electron`),h=require(`node:child_process`);",
+    "var d5=`/avatar-overlay`,of={width:356,height:320},m5={width:112,height:121},y5={width:0,height:0},v5={width:276,height:131};",
+    "var fV=class{window=null;layout=null;mascotSize=m5;traySize=null;pointerInteractive=!1;mousePassthroughEnabled=!1;layoutMode=`native`;compositionHost={setOverlayWindow(){},isNativeMaterialAttached(){return!1},getCursorPosition(){return null},performWindowDrag(){return!1},updateMascotRect(){},publishRemoteHostedPIPContentHost(){}};nativePositionController={clear(){}};",
+    "startDrag(e,t,n=!1){let r=this.window;if(r==null||r.isDestroyed()||r.webContents.id!==e)return;this.cancelMomentum();let i=this.getLayout(r),a=this.compositionHost.getCursorPosition(),o=t.pointerScreenX!=null?{x:t.pointerScreenX,y:t.pointerScreenY}:c.screen.getCursorScreenPoint();this.dragState=new a5(a==null?`renderer`:`native`,t.pointerWindowX-i.mascot.left,t.pointerWindowY-i.mascot.top,c.screen.getDisplayNearestPoint(o).bounds,n),this.windowServerDragActive=this.layoutMode===`native`&&!n&&this.compositionHost.performWindowDrag(),this.windowServerDragActive||(this.windowServerDragWindowX=null)}",
+    "endDrag(e,t){let n=this.window;if(n==null||n.isDestroyed()||n.webContents.id!==e)return;let r=this.dragState,i=this.windowServerDragActive,a=null;this.dragState=null,this.windowServerDragActive=!1,this.windowServerDragWindowX=null,i?this.persistWindowBounds(n,a??this.getCurrentDisplay()):this.reclampWindowToVisibleDisplay({shouldPersist:!0});let o=this.dockTarget;o!=null&&this.dockPresentation(o.anchor,o.onDock)}",
+    "setElementSize(e,{elementSizeRevision:t,isTrayVisible:n,mascot:r,nativeCompositionEnabled:i,tray:a}){let o=this.window;if(o==null||o.isDestroyed()||o.webContents.id!==e)return;this.mascotSize=r,this.traySize=a,this.applyLatestElementSizes(o),this.stageWindowForNativePresentation(o),this.showWindowIfReady(o)}",
+    "async createWindow(){let e=await this.windowManager.createWindow({title:c.app.getName(),width:of.width,height:of.height,appearance:`avatarOverlay`,focusable:!1,show:!1,initialRoute:d5});return this.window=e,this.compositionHost.setOverlayWindow(e),this.dragState=null,this.layout=null,this.mousePassthroughEnabled=!1,this.traySize=null,e.on(`closed`,()=>{if(this.window!==e)return;let t=this.presentationVisibility!=null;this.cancelMomentum(),this.clearMovedWindowPersist(),this.window=null,this.dragState=null,this.pointerInteractive=!1,this.mousePassthroughEnabled=!1,this.compositionHost.setOverlayWindow(null),this.broadcastOpenState()}),e}",
+    "getLayoutForDisplay(e){return pf({anchor:this.anchor,displayBounds:this.layoutMode===`native`?e.workArea:e.bounds,mode:this.layoutMode,mascotSize:this.mascotSize,nativeMaterialAttached:this.compositionHost.isNativeMaterialAttached(),previousPlacement:this.placement,traySize:this.traySize??(this.layoutMode===`native`?y5:v5)})}",
+    "applyLayout(e,t=this.getCurrentDisplay(),n=!1,r=!0,i=null){if(e.isDestroyed())return;let a=this.getLayoutForDisplay(t);this.layout=a,this.setWindowBounds(e,a.windowBounds,n,r),this.compositionHost.updateMascotRect(a.mascot),this.sendLayoutToRenderer(e,i),this.computerUseCursorLocation!=null&&this.dragState==null&&this.sendComputerUseCursorLocationToRenderer(e)}",
+    "showWindow(e){if(e.isDestroyed())return;let t=this.isOpen();e.moveTop(),e.showInactive(),this.compositionHost.publishRemoteHostedPIPContentHost(),!t&&this.isOpen()&&this.broadcastOpenState()}",
     "applyPointerInteractivityPolicy(){let e=this.window;if(e==null||e.isDestroyed()){this.mousePassthroughEnabled=!1;return}let t=!this.pointerInteractive;if(this.mousePassthroughEnabled!==t){if(this.mousePassthroughEnabled=t,t){e.setIgnoreMouseEvents(!0,{forward:!0});return}e.setIgnoreMouseEvents(!1),this.refreshCursorAtCurrentMousePosition(e)}}",
-    "refreshCursorAtCurrentMousePosition(e){if(e.isDestroyed())return;let t=n.screen.getCursorScreenPoint(),r=e.getContentBounds(),i=t.x-r.x,a=t.y-r.y;i<0||a<0||i>r.width||a>r.height||e.webContents.sendInputEvent({type:`mouseMove`,x:i,y:a,movementX:0,movementY:0})}",
-    "};",
-  ].join("");
-}
-
-function currentAvatarOverlayBundleFixture() {
-  return [
-    "let a=require(`electron`),f=require(`node:child_process`);",
-    "var rV=`/avatar-overlay`,zB={width:356,height:320},oV={width:112,height:121},k2={width:0,height:0},O2={width:276,height:131};",
-    "var h2=class{constructor(e,t,n,r){this.cursorSource=e;this.pointerAnchorX=t;this.pointerAnchorY=n;this.displayBounds=r}recordMovementIntent(){this.hasMovementIntent=!0}getCursorPointForSource(){return null}shouldSuppressRendererThrow(){return!1}updateDisplayBounds(e){this.displayBounds=e}};",
-    "var fV=class{window=null;rendererReady=!1;layout=null;mascotSize=oV;traySize=null;pointerInteractive=!1;mousePassthroughEnabled=!1;windowStagedForNativePresentation=!1;layoutMode=`native`;compositionHost={setOverlayWindow(){},isNativeMaterialAttached(){return!1},getCursorPosition(){return null}};nativePositionController={clear(){}};",
-    "constructor(e,t){this.windowManager=e,this.globalState=t}",
-    "isOpen(){let e=this.window;return e!=null&&!e.isDestroyed()&&e.isVisible()&&!this.windowStagedForNativePresentation}",
-    "setPointerInteraction(e,t){let n=this.window;n==null||n.isDestroyed()||n.webContents.id!==e||(this.pointerInteractive=t,this.movedWindowPersistTimer??this.applyPointerInteractivityPolicy())}",
-    "startDrag(e,t){let n=this.window;if(n==null||n.isDestroyed()||n.webContents.id!==e)return;this.cancelMomentum(),this.suppressNextRendererThrow=!1,this.clearDetachedDisplayRestore();let r=this.getLayout(n);this.nativePositionController.clear();let i=V2(this.compositionHost.getCursorPosition()),o=t.pointerScreenX!=null&&t.pointerScreenY!=null?{x:t.pointerScreenX,y:t.pointerScreenY}:a.screen.getCursorScreenPoint(),s=i??o,c=t.pointerWindowX-r.mascot.left,l=t.pointerWindowY-r.mascot.top;this.dragState=new h2(i==null?`renderer`:`native`,c,l,a.screen.getDisplayNearestPoint(s).bounds)}",
-    "moveDrag(e){return e}",
-    "endDrag(e,t){let n=this.window;if(n==null||n.isDestroyed()||n.webContents.id!==e)return;let r=this.dragState;if(r?.hasMovementIntent){let e=r.screen.getCursorScreenPoint(),i=r.getCursorPointForSource({native:r.cursorSource===`native`?V2(this.compositionHost.getCursorPosition()):null,renderer:{x:t?.pointerScreenX??e.x,y:t?.pointerScreenY??e.y}});i!=null&&this.moveDragToPointer(n,i)}this.suppressNextRendererThrow=r?.shouldSuppressRendererThrow()??!1,this.dragState=null,this.reclampWindowToVisibleDisplay({shouldPersist:!0})}",
-    "setElementSize(e,{isTrayVisible:t,mascot:n,tray:r}){let i=this.window;i==null||i.isDestroyed()||i.webContents.id!==e||(this.cancelMomentum(),this.layoutMode=t==null?`native`:`legacy`,this.mascotSize=n,this.traySize=r,this.applyLatestElementSizes(i),this.stageWindowForNativePresentation(i),this.showWindowIfReady(i))}",
-    "applyLatestElementSizes(e){this.anchor={...this.anchor,width:this.mascotSize.width,height:this.mascotSize.height},this.applyLayout(e)}",
-    "async createWindow(e){let t=await this.windowManager.createWindow({title:a.app.getName(),width:zB.width,height:zB.height,appearance:`avatarOverlay`,focusable:!1,show:!1,initialRoute:rV});return this.window=t,this.compositionHost.setOverlayWindow(t),this.rendererReady=this.windowManager.isWebContentsReady(t.webContents.id),this.clearDetachedDisplayRestore(),this.displayBounds=null,this.displayId=null,this.dragState=null,this.layout=null,this.mascotSize=oV,this.mousePassthroughEnabled=!1,this.traySize=null,t.on(`closed`,()=>{this.window===t&&(this.cancelMomentum(),this.clearMovedWindowPersist(),this.window=null,this.dragState=null,this.layout=null,this.rendererReady=!1,this.pointerInteractive=!1,this.mousePassthroughEnabled=!1,this.compositionHost.setOverlayWindow(null),this.broadcastOpenState())}),t}",
-    "applyLayout(e,t=this.getCurrentDisplay(),n=!1,r=!0,i=null){if(e.isDestroyed())return;let a=t.bounds;this.displayId=t.id,this.resolutionKey=H2(a),this.displayBounds=a;let o=UB({anchor:this.anchor,displayBounds:this.layoutMode===`native`?t.workArea:t.bounds,mode:this.layoutMode,mascotSize:this.mascotSize,nativeMaterialAttached:this.compositionHost.isNativeMaterialAttached(),previousPlacement:this.placement,traySize:this.traySize??(this.layoutMode===`native`?k2:O2)});this.anchor=o.anchor,this.layout=o,this.placement=o.placement,this.setWindowBounds(e,o.windowBounds,n,r),this.sendLayoutToRenderer(e,i)}getLayout(e){if(this.layout??this.applyLayout(e),this.layout==null)throw Error(`Expected avatar overlay layout`);return this.layout}",
-    "showWindow(e){if(e.isDestroyed())return;let t=this.isOpen();this.windowStagedForNativePresentation&&=(e.setOpacity(1),!1),e.moveTop(),e.showInactive(),!t&&this.isOpen()&&(this.finishPendingPresentation(),this.broadcastOpenState())}showWindowIfReady(e){!this.rendererReady||this.initialPresentationState!==`ready`||(this.showWindow(e),this.applyPointerInteractivityPolicy())}stageWindowForNativePresentation(e){e.isDestroyed()||this.applyPointerInteractivityPolicy()}broadcastOpenState(){this.windowManager.sendMessageToAllRegisteredWindows({type:`avatar-overlay-open-state-changed`,isOpen:this.isOpen()})}",
-    "applyPointerInteractivityPolicy(){let e=this.window;if(e==null||e.isDestroyed()){this.mousePassthroughEnabled=!1;return}let t=!this.pointerInteractive;if(this.mousePassthroughEnabled!==t){if(this.mousePassthroughEnabled=t,t){e.setIgnoreMouseEvents(!0,{forward:!0});return}e.setIgnoreMouseEvents(!1),this.refreshCursorAtCurrentMousePosition(e)}}refreshCursorAtCurrentMousePosition(e){let t=a.screen.getCursorScreenPoint()}",
-    "function V2(e){return e==null?null:{x:e.pointerScreenX,y:e.pointerScreenY}}function H2(e){return`${e.width}x${e.height}`}",
+    "setComputerUseCursorLocation(e){this.computerUseCursorLocation=e,this.computerUseCursorPoint=e.isActive?{x:e.x,y:e.y}:null}",
+    "sendComputerUseCursorLocationToRenderer(e){this.windowManager.sendMessageToWebContents(e.webContents,{type:`avatar-overlay-computer-use-cursor-changed`})}",
+    "refreshCursorAtCurrentMousePosition(e){let t=c.screen.getCursorScreenPoint();return this.sendCursorPointToAvatarOverlay(e,t,!1)}",
     "};",
   ].join("");
 }
@@ -1261,6 +1805,70 @@ test("adds Linux file manager support without relying on exact minified variable
   assert.match(patched, /linux:\{label:`File Manager`/);
   assert.match(patched, /detect:\(\)=>`linux-file-manager`/);
   assert.match(patched, /n\.shell\.openPath\(__codexOpenTarget\)/);
+});
+
+test("opens the project picker without a parent window on Linux X11", async () => {
+  const source =
+    "class T{async pickLocalWorkspaceRoots(e,t=!1){if(this.host.id!==`local`)throw Error(`local only`);let n=[`openDirectory`,`createDirectory`];t&&n.push(`multiSelections`),await this.shouldShowHiddenFilesInPicker()&&n.push(`showHiddenFiles`);let r={properties:n,title:`Select Project Root`},i=c.BrowserWindow.fromWebContents(e),a=i==null?await c.dialog.showOpenDialog(r):await c.dialog.showOpenDialog(i,r);return a.canceled?[]:(await Promise.all(a.filePaths.map(e=>this.resolveWorkspaceRoot(e)))).filter(e=>e!=null)}}";
+  const patched = applyPatchTwice(applyLinuxX11ProjectPickerPatch, source);
+
+  assert.match(patched, /codexLinuxUseUnparentedX11ProjectPicker/);
+
+  async function run(platform, env) {
+    const calls = [];
+    const context = {
+      process: { platform, env },
+      calls,
+      c: {
+        BrowserWindow: { fromWebContents: () => ({ id: "parent" }) },
+        dialog: {
+          showOpenDialog: async (...args) => {
+            calls.push(args);
+            return { canceled: false, filePaths: ["/tmp/project"] };
+          },
+        },
+      },
+    };
+    vm.runInNewContext(
+      `${patched};manager=new T;manager.host={id:\`local\`};manager.shouldShowHiddenFilesInPicker=async()=>false;manager.resolveWorkspaceRoot=async e=>e`,
+      context,
+    );
+    const roots = await context.manager.pickLocalWorkspaceRoots({});
+    return { argumentCount: calls[0].length, roots: Array.from(roots) };
+  }
+
+  assert.deepEqual(await run("linux", { XDG_SESSION_TYPE: " X11 ", DISPLAY: ":0" }), {
+    argumentCount: 1,
+    roots: ["/tmp/project"],
+  });
+  assert.deepEqual(await run("linux", { DISPLAY: ":0" }), {
+    argumentCount: 1,
+    roots: ["/tmp/project"],
+  });
+  assert.deepEqual(await run("linux", { DISPLAY: ":0", WAYLAND_DISPLAY: "wayland-0" }), {
+    argumentCount: 2,
+    roots: ["/tmp/project"],
+  });
+  assert.deepEqual(await run("linux", { XDG_SESSION_TYPE: "unknown", DISPLAY: ":0" }), {
+    argumentCount: 1,
+    roots: ["/tmp/project"],
+  });
+  assert.deepEqual(
+    await run("linux", { XDG_SESSION_TYPE: "unknown", DISPLAY: ":0", WAYLAND_DISPLAY: "wayland-0" }),
+    { argumentCount: 2, roots: ["/tmp/project"] },
+  );
+  assert.deepEqual(await run("linux", { XDG_SESSION_TYPE: " Wayland ", DISPLAY: ":0" }), {
+    argumentCount: 2,
+    roots: ["/tmp/project"],
+  });
+  assert.deepEqual(
+    await run("linux", { XDG_SESSION_TYPE: "wayland", DISPLAY: ":0", WAYLAND_DISPLAY: "wayland-0" }),
+    { argumentCount: 2, roots: ["/tmp/project"] },
+  );
+  assert.deepEqual(await run("darwin", {}), {
+    argumentCount: 2,
+    roots: ["/tmp/project"],
+  });
 });
 
 test("adds Linux file manager support to the worker open target registry", () => {
@@ -1276,6 +1884,252 @@ test("adds Linux file manager support to the worker open target registry", () =>
   assert.match(patched, /import\(`electron`\)\)\.shell\.openPath\(t\)/);
 });
 
+function evaluatePatchedHostProcessEnvironment(env) {
+  const source =
+    '"use strict";const shellError=`Failed to load shell env`,cliError=`Unable to locate the Codex CLI binary`;async function ky(){let a=new AbortController,s=await n.rr({interactive:!0,extraEnv:{[n.ir]:`1`},signal:a.signal}).then(e=>({status:`loaded`,userEnv:e}));if(s.status===`loaded`)return Object.assign(process.env,s.userEnv),s}function cB(e){let r={...process.env,LOG_FORMAT:`json`,RUST_LOG:process.env.RUST_LOG??`warn`,CODEX_INTERNAL_ORIGINATOR_OVERRIDE:e.defaultOriginator??`Codex Desktop`},a=`next`;return{executablePath:`codex`,args:[`app-server`],env:t.t(r),a}}';
+  const patched = applyPatchTwice(applyLinuxHostProcessEnvironmentPatch, source);
+  const context = {
+    AbortController: class {
+      signal = {};
+    },
+    process: { platform: "linux", env: { ...env } },
+    n: {
+      ir: "CODEX_SHELL",
+      rr: async ({ extraEnv }) =>
+        context.shellUserEnv ??
+        Object.fromEntries(
+          Object.entries({ ...context.process.env, ...extraEnv }).filter(([, value]) => value !== undefined),
+        ),
+    },
+    t: { t: (value) => value },
+  };
+  vm.runInNewContext(
+    `${patched};globalThis.hostConfig=cB({});globalThis.createHostConfig=cB;globalThis.loadShell=ky`,
+    context,
+  );
+  return { context, patched };
+}
+
+test("restores inherited library paths only at known Linux host-process boundaries", async () => {
+  const { context, patched } = evaluatePatchedHostProcessEnvironment({
+    PATH: "/usr/bin",
+    LD_LIBRARY_PATH: "/nix/app:/nix/runtime",
+    CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE: "unset",
+    CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE: "",
+  });
+
+  assert.match(patched, /codexLinuxHostProcessEnv/);
+  assert.doesNotMatch(patched, /PatchChildProcessEnvironment/);
+  assert.doesNotMatch(patched, /require\(`node:child_process`\)/);
+  assert.equal(Object.hasOwn(context.hostConfig.env, "LD_LIBRARY_PATH"), false);
+
+  const shellResult = await context.loadShell();
+  assert.equal(Object.hasOwn(shellResult.userEnv, "LD_LIBRARY_PATH"), false);
+  assert.equal(context.process.env.CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE, "unset");
+  assert.equal(
+    context.process.env.LD_LIBRARY_PATH,
+    "/nix/app:/nix/runtime",
+    "loading the user shell must not discard Electron's packaged runtime path",
+  );
+});
+
+test("preserves empty and non-empty user LD_LIBRARY_PATH values for inherited host environments", () => {
+  for (const [state, value] of [
+    ["empty", ""],
+    ["value", "/home/user/lib:/opt/vendor/lib"],
+  ]) {
+    const { context } = evaluatePatchedHostProcessEnvironment({
+      LD_LIBRARY_PATH: `/nix/app:${value}`,
+      CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE: state,
+      CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE: value,
+    });
+    assert.equal(context.hostConfig.env.LD_LIBRARY_PATH, value);
+  }
+});
+
+test("preserves a user LD_LIBRARY_PATH discovered by the login shell", async () => {
+  const { context } = evaluatePatchedHostProcessEnvironment({
+    LD_LIBRARY_PATH: "/nix/app:/nix/runtime",
+    CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE: "unset",
+    CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE: "",
+  });
+  context.shellUserEnv = {
+    PATH: "/home/user/bin:/usr/bin",
+    LD_LIBRARY_PATH: "/home/user/profile-lib",
+  };
+
+  await context.loadShell();
+
+  assert.equal(
+    context.process.env.LD_LIBRARY_PATH,
+    "/nix/app:/nix/runtime",
+    "shell discovery must leave the packaged Electron runtime intact",
+  );
+  assert.equal(context.process.env.CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE, "value");
+  assert.equal(
+    context.process.env.CODEX_LINUX_HOST_LD_LIBRARY_PATH_VALUE,
+    "/home/user/profile-lib",
+  );
+  assert.equal(context.createHostConfig({}).env.LD_LIBRARY_PATH, "/home/user/profile-lib");
+});
+
+test("preserves development shell and CLI environments without launcher snapshot markers", async () => {
+  const { context } = evaluatePatchedHostProcessEnvironment({
+    LD_LIBRARY_PATH: "/developer/lib",
+    CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE: "unset",
+    CODEX_LINUX_HOST_LD_LIBRARY_PATH_VALUE: "/stale/host/lib",
+  });
+  assert.equal(context.hostConfig.env.LD_LIBRARY_PATH, "/developer/lib");
+  assert.equal(
+    Object.hasOwn(context.hostConfig.env, "CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE"),
+    false,
+  );
+  const shellResult = await context.loadShell();
+  assert.equal(shellResult.userEnv.LD_LIBRARY_PATH, "/developer/lib");
+  assert.equal(
+    Object.hasOwn(shellResult.userEnv, "CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE"),
+    false,
+  );
+  assert.equal(context.process.env.LD_LIBRARY_PATH, "/developer/lib");
+});
+
+test("patches startup shell and Codex CLI environments in separate Vite bundles", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-host-env-bundles-"));
+  try {
+    const buildDir = path.join(tempRoot, ".vite", "build");
+    fs.mkdirSync(buildDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(buildDir, "main-current.js"),
+      '"use strict";const shellError=`Failed to load shell env`;async function ky(){let a=new AbortController,s=await n.rr({interactive:!0,extraEnv:{[n.ir]:`1`},signal:a.signal}).then(e=>({status:`loaded`,userEnv:e}));if(s.status===`loaded`)return Object.assign(process.env,s.userEnv),s}',
+    );
+    fs.writeFileSync(
+      path.join(buildDir, "src-current.js"),
+      '"use strict";const cliError=`Unable to locate the Codex CLI binary`;function cB(e){let r={...process.env,LOG_FORMAT:`json`,RUST_LOG:process.env.RUST_LOG??`warn`,CODEX_INTERNAL_ORIGINATOR_OVERRIDE:e.defaultOriginator??`Codex Desktop`},a=`next`;return{env:t.t(r),a}}',
+    );
+
+    const result = patchLinuxHostProcessEnvironmentTargets(tempRoot);
+    const mainSource = fs.readFileSync(path.join(buildDir, "main-current.js"), "utf8");
+    const sharedSource = fs.readFileSync(path.join(buildDir, "src-current.js"), "utf8");
+    assert.deepEqual(result, { matched: 2, changed: 2 });
+    assert.match(mainSource, /extraEnv:codexLinuxLoginShellExtraEnv/);
+    assert.match(mainSource, /codexLinuxShellEnvResult/);
+    assert.match(sharedSource, /let r=codexLinuxHostProcessEnv\(\{\.\.\.process\.env/);
+    assert.deepEqual(patchLinuxHostProcessEnvironmentTargets(tempRoot), {
+      matched: 2,
+      changed: 0,
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("restores the user PATH for Linux local terminal sessions", () => {
+  const source = `${mainBundlePrefix}${terminalEnvBundle}`;
+
+  const patched = applyPatchTwice(applyLinuxTerminalUserPathPatch, source);
+
+  assert.match(patched, /function codexLinuxRestoreUserTerminalPath/);
+  assert.match(patched, /CODEX_LINUX_USER_PATH/);
+  assert.match(
+    patched,
+    /process\.platform===`linux`&&this\.isLocalTerminalSession\(r\)&&codexLinuxRestoreUserTerminalPath\(i\)/,
+  );
+  assert.doesNotMatch(patched, /CODEX_LINUX_USER_PATH;n\(i\)/);
+
+  const helperSource = patched.match(
+    /function codexLinuxRestoreUserTerminalPath\(e\)\{[\s\S]*?return e\}/,
+  )?.[0];
+  assert.ok(helperSource);
+
+  const managedRuntime = "/opt/codex-desktop/resources/node-runtime";
+  const managedBin = `${managedRuntime}/bin`;
+  const runHelper = (terminalPath, processPath = `${managedBin}:/usr/bin:/bin`) => {
+    const terminalEnv = {
+      PATH: terminalPath,
+      CODEX_LINUX_USER_PATH: "/usr/bin:/bin",
+    };
+    vm.runInNewContext(`${helperSource};codexLinuxRestoreUserTerminalPath(terminalEnv);`, {
+      process: {
+        env: {
+          CODEX_LINUX_USER_PATH: "/usr/bin:/bin",
+          CODEX_MANAGED_NODE_RUNTIME_DIR: managedRuntime,
+          PATH: processPath,
+        },
+      },
+      terminalEnv,
+    });
+    return terminalEnv;
+  };
+
+  assert.deepEqual(runHelper(`${managedBin}:/usr/bin:/bin`), { PATH: "/usr/bin:/bin" });
+  assert.deepEqual(
+    runHelper(`/worktree/bin:${managedBin}:/custom/bin`, `${managedBin}:/usr/bin:/bin`),
+    { PATH: "/worktree/bin:/usr/bin:/bin:/custom/bin" },
+  );
+  assert.deepEqual(runHelper("/worktree/bin:/custom/bin"), {
+    PATH: "/worktree/bin:/custom/bin",
+  });
+});
+
+test("rejects the obsolete 26.623 terminal sanitizer shape", () => {
+  const source = `${mainBundlePrefix}${obsoleteTerminalEnvBundle}`;
+
+  const patched = applyPatchTwice(applyLinuxTerminalUserPathPatch, source);
+
+  assert.equal(patched, source);
+  assert.doesNotMatch(patched, /function codexLinuxRestoreUserTerminalPath/);
+});
+
+test("sanitizes the terminal base before applying worktree environment overrides", async () => {
+  const patched = applyPatchTwice(
+    applyLinuxTerminalHostEnvironmentPatch,
+    terminalEnvBundle,
+  );
+  const context = {
+    process: {
+      platform: "linux",
+      env: {
+        PATH: "/usr/bin",
+        LD_LIBRARY_PATH: "/nix/app:/nix/runtime",
+        CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE: "unset",
+        CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE: "",
+      },
+    },
+  };
+  vm.runInNewContext(`${patched};globalThis.Backend=Backend`, context);
+  const backend = new context.Backend();
+  backend.getWorktreeShellEnvironmentForCwd = async () => ({
+    exclude: [],
+    set: { LD_LIBRARY_PATH: "/project/lib", PROJECT_ONLY: "1" },
+  });
+
+  const terminalEnv = await backend.buildTerminalEnv("/worktree", null, { type: "local" });
+
+  assert.equal(terminalEnv.LD_LIBRARY_PATH, "/project/lib");
+  assert.equal(terminalEnv.PROJECT_ONLY, "1");
+  assert.equal(Object.hasOwn(terminalEnv, "CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE"), false);
+
+  backend.getWorktreeShellEnvironmentForCwd = async () => ({ exclude: [], set: {} });
+  for (const [state, value] of [
+    ["empty", ""],
+    ["value", "/home/user/lib"],
+  ]) {
+    context.process.env.CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE = state;
+    context.process.env.CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE = value;
+    const inheritedEnv = await backend.buildTerminalEnv("/worktree", null, { type: "local" });
+    assert.equal(inheritedEnv.LD_LIBRARY_PATH, value);
+  }
+
+  delete context.process.env.CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE;
+  delete context.process.env.CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE;
+  context.process.env.CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE = "unset";
+  context.process.env.CODEX_LINUX_HOST_LD_LIBRARY_PATH_VALUE = "/stale/host/lib";
+  context.process.env.LD_LIBRARY_PATH = "/developer/lib";
+  const developmentEnv = await backend.buildTerminalEnv("/worktree", null, { type: "local" });
+  assert.equal(developmentEnv.LD_LIBRARY_PATH, "/developer/lib");
+  assert.equal(Object.hasOwn(developmentEnv, "CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE"), false);
+});
+
 test("patchExtractedApp patches worker file manager support", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-worker-file-manager-"));
   try {
@@ -1288,7 +2142,7 @@ test("patchExtractedApp patches worker file manager support", () => {
       [
         mainBundlePrefix,
         "process.platform===`win32`&&k.removeMenu(),",
-        alreadyOpaqueBackgroundBundle,
+        currentOpaqueWindowSurfaceBackgroundBundle,
         fileManagerBundle,
         trayBundleFixture(),
         singleInstanceBundleFixture(),
@@ -1327,7 +2181,7 @@ test("patchExtractedApp reports worker file manager patch drift", () => {
       [
         mainBundlePrefix,
         "process.platform===`win32`&&k.removeMenu(),",
-        alreadyOpaqueBackgroundBundle,
+        currentOpaqueWindowSurfaceBackgroundBundle,
         fileManagerBundle,
         trayBundleFixture(),
         singleInstanceBundleFixture(),
@@ -1517,6 +2371,8 @@ test("registers local app-server feature enablement in internal and Electron han
   assert.match(patched, /"set-local-app-server-feature-enablement":async/);
   assert.match(patched, /local_app_server_feature_enablement/);
   assert.match(patched, /local_remote_control_enabled/);
+  assert.match(patched, /`mentions_v2`/);
+  assert.match(patched, /`tool_search`/);
   assert.match(patched, /enablement/);
   assert.equal(
     (patched.match(/set-local-app-server-feature-enablement/g) ?? []).length,
@@ -1524,48 +2380,70 @@ test("registers local app-server feature enablement in internal and Electron han
   );
 });
 
-test("adds the Linux quit guard when electron/path/fs requires are split across statements", () => {
-  const source =
-    "const e={gr:e=>({default:e,...e})};let n=require(`electron`);let i=require(`node:path`);i=e.gr(i);let o=require(`node:fs`);o=e.gr(o);";
+test("adds the Linux quit guard to the current comma-declared Electron prelude", () => {
+  const source = currentMainBundlePrefix;
 
   const patched = applyPatchTwice(applyLinuxQuitGuardPatch, source);
 
-  assert.match(patched, /let codexLinuxQuitInProgress=!1/);
+  assert.match(patched, /codexLinuxQuitInProgress=!1/);
   assert.match(patched, /codexLinuxExplicitQuitApproved=!1/);
-  assert.match(patched, /codexLinuxMarkQuitInProgress=\(\)=>\{codexLinuxQuitInProgress=!0\}/);
+  assert.match(patched, /codexLinuxMarkQuitInProgress=\(\)=>\{codexLinuxQuitInProgress=!0,codexLinuxDestroyTray\(\)\}/);
   assert.match(patched, /codexLinuxPrepareForExplicitQuit=\(\)=>\{codexLinuxExplicitQuitApproved=!0,codexLinuxMarkQuitInProgress\(\)\}/);
   assert.match(patched, /codexLinuxShouldBypassQuitPrompt=\(\)=>codexLinuxExplicitQuitApproved===!0/);
   assert.match(patched, /codexLinuxIsQuitInProgress=\(\)=>codexLinuxQuitInProgress===!0/);
 });
 
-test("adds the Linux quit guard when only the Electron require is recognizable", () => {
-  const source =
-    "const e=require(`./app-session.js`);let t=require(`electron`);class WindowManager{}";
+test("keeps the current Linux quit guard module-scoped after helper declarations", () => {
+  const source = `function upstreamHelper(){return!0}${currentMainBundlePrefix}`;
 
   const patched = applyPatchTwice(applyLinuxQuitGuardPatch, source);
 
-  assert.match(patched, /^let codexLinuxQuitInProgress=!1/);
+  assert.match(patched, /p=e\.o\(p\);let codexLinuxTray=null/);
   assert.match(patched, /codexLinuxExplicitQuitApproved=!1/);
-  assert.match(patched, /codexLinuxMarkQuitInProgress=\(\)=>\{codexLinuxQuitInProgress=!0\}/);
   assert.match(patched, /codexLinuxPrepareForExplicitQuit=\(\)=>\{codexLinuxExplicitQuitApproved=!0,codexLinuxMarkQuitInProgress\(\)\}/);
-  assert.match(patched, /codexLinuxShouldBypassQuitPrompt=\(\)=>codexLinuxExplicitQuitApproved===!0/);
-  assert.match(patched, /codexLinuxIsQuitInProgress=\(\)=>codexLinuxQuitInProgress===!0/);
   assert.equal((patched.match(/codexLinuxQuitInProgress=!1/g) ?? []).length, 1);
 });
 
-test("upgrades the legacy Linux quit guard helper when re-patching older bundles", () => {
-  const source =
-    "let n=require(`electron`),i=require(`node:path`),o=require(`node:fs`);let codexLinuxQuitInProgress=!1,codexLinuxMarkQuitInProgress=()=>{codexLinuxQuitInProgress=!0},codexLinuxIsQuitInProgress=()=>codexLinuxQuitInProgress===!0;var x=1;";
+test("adds the Linux quit guard for the current interleaved bundler prelude", () => {
+  const source = `${currentMainBundlePrefix}let m=require(\`node:fs/promises\`);`;
 
   const patched = applyPatchTwice(applyLinuxQuitGuardPatch, source);
 
-  assert.doesNotMatch(patched, /let codexLinuxQuitInProgress=!1,codexLinuxMarkQuitInProgress=\(\)=>\{codexLinuxQuitInProgress=!0\},codexLinuxIsQuitInProgress=\(\)=>codexLinuxQuitInProgress===!0;/);
+  assert.match(patched, /let m=require\(`node:fs\/promises`\);/);
+  assert.match(patched, /p=e\.o\(p\);let codexLinuxTray=null/);
+  assert.match(patched, /codexLinuxExplicitQuitApproved=!1/);
   assert.match(patched, /codexLinuxPrepareForExplicitQuit=\(\)=>\{codexLinuxExplicitQuitApproved=!0,codexLinuxMarkQuitInProgress\(\)\}/);
-  assert.match(patched, /codexLinuxShouldBypassQuitPrompt=\(\)=>codexLinuxExplicitQuitApproved===!0/);
+  assert.equal((patched.match(/codexLinuxQuitInProgress=!1/g) ?? []).length, 1);
+});
+
+test("destroys the registered Linux tray before the app exits", () => {
+  const source = `${currentMainBundlePrefix}${trayBundleFixture()}`;
+  const patched = applyPatchTwice(
+    applyLinuxTrayPatch,
+    applyLinuxQuitGuardPatch(source),
+    null,
+  );
+
+  assert.match(patched, /codexLinuxRegisterTray=e=>\(codexLinuxTray=e,e\)/);
+  assert.match(patched, /codexLinuxDestroyTray=\(\)=>\{if\(process\.platform!==`linux`\)return;/);
+  assert.match(patched, /codexLinuxTray=null;try\{e\?\.destroy\(\)\}catch\{\}/);
+  assert.match(patched, /codexLinuxMarkQuitInProgress=\(\)=>\{codexLinuxQuitInProgress=!0,codexLinuxDestroyTray\(\)\}/);
+  assert.match(patched, /c\.app\.on\(`before-quit`,\(\)=>codexLinuxDestroyTray\(\)\)/);
+  assert.match(patched, /i=typeof codexLinuxRegisterTray===`function`\?codexLinuxRegisterTray\(new n\.Tray\(r\.defaultIcon\)\):new n\.Tray\(r\.defaultIcon\)/);
+  assert.doesNotMatch(patched, /codexLinuxTrayQuitDelayMs/);
+
+  const helperStart = patched.indexOf("let codexLinuxTray=null");
+  const helperEnd = patched.indexOf(";c.app.on(`before-quit`", helperStart) + 1;
+  const helperSource = patched.slice(helperStart, helperEnd);
+  const runDestroy = new Function(
+    "process",
+    `${helperSource}let calls=0;codexLinuxRegisterTray({destroy(){calls+=1}});codexLinuxMarkQuitInProgress();codexLinuxMarkQuitInProgress();return calls;`,
+  );
+  assert.equal(runDestroy({ platform: "linux" }), 1);
 });
 
 test("bypasses the upstream before-quit confirmation after a Linux explicit quit", () => {
-  const source = `${mainBundlePrefix}${beforeQuitConfirmationBundleFixture()}`;
+  const source = `${currentMainBundlePrefix}${beforeQuitConfirmationBundleFixture()}`;
   const patched = applyPatchTwice(
     applyLinuxExplicitQuitPromptBypassPatch,
     applyLinuxQuitGuardPatch(source),
@@ -1573,58 +2451,31 @@ test("bypasses the upstream before-quit confirmation after a Linux explicit quit
 
   assert.match(
     patched,
-    /if\(\(typeof codexLinuxShouldBypassQuitPrompt===`function`&&codexLinuxShouldBypassQuitPrompt\(\)\)\|\|e\|\|i\.canQuitWithoutPrompt\(\)\|\|r\|\|!s&&!c\)\{g=!0,a\.markAppQuitting\(\);return\}/,
+    /if\(\(typeof codexLinuxShouldBypassQuitPrompt===`function`&&codexLinuxShouldBypassQuitPrompt\(\)\)\|\|e\|\|i\.canQuitWithoutPrompt\(\)\|\|r\|\|!s&&!c\)\{process\.platform===`linux`&&typeof codexLinuxMarkQuitInProgress===`function`&&codexLinuxMarkQuitInProgress\(\),g=!0,a\.markAppQuitting\(\);return\}/,
+  );
+  assert.match(
+    patched,
+    /process\.platform===`linux`&&typeof codexLinuxMarkQuitInProgress===`function`&&codexLinuxMarkQuitInProgress\(\),i\.markQuitApproved\(\),g=!0,a\.markAppQuitting\(\)/,
   );
 });
 
 test("adds a bounded will-quit drain fallback for Linux explicit quit", () => {
-  const source = `${mainBundlePrefix}${willQuitDrainBundleFixture()}`;
+  const source = `${currentMainBundlePrefix}${willQuitDrainBundleFixture()}`;
   const patched = applyPatchTwice(
     applyLinuxWillQuitDrainTimeoutPatch,
     applyLinuxQuitGuardPatch(source),
   );
 
   assert.match(patched, /codexLinuxExplicitQuitDrainTimeoutMs=3e3/);
-  assert.match(patched, /\(\(\)=>\{let codexLinuxFinalizeQuit=\(\)=>\{d\(\),f\.dispose\(\),n\.app\.quit\(\)\},codexLinuxDrainPromise=Promise\.all\(\[\.\.\.u\.values\(\)\]\.map\(e=>e\.flush\(\)\)\);/);
+  assert.match(patched, /\(\(\)=>\{let codexLinuxFinalizeQuit=\(\)=>\{d\(\),f\.dispose\(\),n\.app\.quit\(\)\},codexLinuxDrainPromise=Promise\.all\(\[u\.flush\(\),p\.flush\(\)\]\);/);
   assert.match(patched, /if\(process\.platform===`linux`&&\(typeof codexLinuxIsQuitInProgress===`function`&&codexLinuxIsQuitInProgress\(\)\)\)\{Promise\.race\(\[codexLinuxDrainPromise,new Promise\(e=>setTimeout\(e,typeof codexLinuxExplicitQuitDrainTimeoutMs===`number`\?codexLinuxExplicitQuitDrainTimeoutMs:3e3\)\)\]\)\.finally\(codexLinuxFinalizeQuit\);return\}/);
   assert.doesNotMatch(patched, /\\`number\\`/);
   assert.match(patched, /codexLinuxDrainPromise\.finally\(codexLinuxFinalizeQuit\)\}\)\(\)/);
   assert.doesNotThrow(() => new Function(patched));
 });
 
-test("patches remaining before-quit and drain guards when another copy is already patched", () => {
-  const promptBypassExpression =
-    "(typeof codexLinuxShouldBypassQuitPrompt===`function`&&codexLinuxShouldBypassQuitPrompt())||";
-  const patchedPrompt = `if(${promptBypassExpression}e||i.canQuitWithoutPrompt()||r||!s&&!c){g=!0,a.markAppQuitting();return}`;
-  const unpatchedPrompt =
-    "if(e||i.canQuitWithoutPrompt()||r||!s&&!c){g=!0,a.markAppQuitting();return}";
-  const patchedPromptSource = applyPatchTwice(
-    applyLinuxExplicitQuitPromptBypassPatch,
-    `${patchedPrompt}function secondPrompt(){${unpatchedPrompt}}`,
-  );
-  assert.equal((patchedPromptSource.match(/codexLinuxShouldBypassQuitPrompt\(\)/g) ?? []).length, 2);
-  assert.match(
-    patchedPromptSource,
-    /function secondPrompt\(\)\{if\(\(typeof codexLinuxShouldBypassQuitPrompt===`function`&&codexLinuxShouldBypassQuitPrompt\(\)\)\|\|e\|\|i\.canQuitWithoutPrompt\(\)\|\|r\|\|!s&&!c\)\{g=!0,a\.markAppQuitting\(\);return\}\}/,
-  );
-
-  const unpatchedDrain =
-    "Promise.all([...u.values()].map(e=>e.flush())).finally(()=>{d(),f.dispose(),n.app.quit()})";
-  const patchedDrain =
-    "(()=>{let codexLinuxFinalizeQuit=()=>{d(),f.dispose(),n.app.quit()},codexLinuxDrainPromise=Promise.all([...u.values()].map(e=>e.flush()));if(process.platform===`linux`&&(typeof codexLinuxIsQuitInProgress===`function`&&codexLinuxIsQuitInProgress())){Promise.race([codexLinuxDrainPromise,new Promise(e=>setTimeout(e,typeof codexLinuxExplicitQuitDrainTimeoutMs===`number`?codexLinuxExplicitQuitDrainTimeoutMs:3e3))]).finally(codexLinuxFinalizeQuit);return}codexLinuxDrainPromise.finally(codexLinuxFinalizeQuit)})()";
-  const patchedDrainSource = applyPatchTwice(
-    applyLinuxWillQuitDrainTimeoutPatch,
-    `${patchedDrain}function secondDrain(){${unpatchedDrain}}`,
-  );
-  assert.equal((patchedDrainSource.match(/codexLinuxDrainPromise=Promise\.all/g) ?? []).length, 2);
-  assert.match(
-    patchedDrainSource,
-    /function secondDrain\(\)\{\(\(\)=>\{let codexLinuxFinalizeQuit=\(\)=>\{d\(\),f\.dispose\(\),n\.app\.quit\(\)\},codexLinuxDrainPromise=Promise\.all\(\[\.\.\.u\.values\(\)\]\.map\(e=>e\.flush\(\)\)\);/,
-  );
-});
-
 test("marks Linux quit-in-progress for the tray quit path", () => {
-  const source = `${mainBundlePrefix}${explicitQuitBundleFixture()}`;
+  const source = `${currentMainBundlePrefix}${explicitQuitBundleFixture()}`;
   const patched = applyPatchTwice(
     applyLinuxExplicitTrayQuitPatch,
     applyLinuxQuitGuardPatch(source),
@@ -1637,7 +2488,7 @@ test("marks Linux quit-in-progress for the tray quit path", () => {
 });
 
 test("marks Linux quit-in-progress for the quit-app IPC path", () => {
-  const source = `${mainBundlePrefix}${explicitQuitBundleFixture()}`;
+  const source = `${currentMainBundlePrefix}${explicitQuitBundleFixture()}`;
   const patched = applyPatchTwice(
     applyLinuxExplicitIpcQuitPatch,
     applyLinuxQuitGuardPatch(source),
@@ -1716,7 +2567,7 @@ test("uses the frameless native Codex titlebar for primary Linux windows", () =>
     "function A2(e){return e===`avatarOverlay`}",
     "function I2({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return n&&!A2(t)&&(e===`darwin`||e===`win32`)?{backgroundColor:r?a2:o2,backgroundMaterial:e===`win32`?`none`:null}:e===`linux`&&!A2(t)?{backgroundColor:r?a2:o2,backgroundMaterial:null}:{backgroundColor:i2,backgroundMaterial:null}}",
     "function b2(e=1){return{color:i2,symbolColor:a.nativeTheme.shouldUseDarkColors?v2:_2,height:Math.round(g2*e)}}",
-    "case`primary`:return n===`darwin`?t?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:{vibrancy:`menu`,titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:n===`win32`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r)}:{titleBarStyle:`default`};",
+    "case`quickChat`:case`primary`:return n===`darwin`?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r),...e===`quickChat`?{hasShadow:!0,resizable:!0,transparent:!0}:{},...t?{}:{vibrancy:`menu`}}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r),...e===`quickChat`?{resizable:!0}:{}}:{titleBarStyle:`default`,...e===`quickChat`?{resizable:!0}:{}};",
   ].join("");
   const patched = applyPatchTwice(applyLinuxNativeTitlebarPatch, source);
 
@@ -1726,10 +2577,10 @@ test("uses the frameless native Codex titlebar for primary Linux windows", () =>
   );
   assert.match(
     patched,
-    /n===`linux`\?\{titleBarStyle:`hidden`,titleBarOverlay:codexLinuxTitleBarOverlay\(r\)\}/,
+    /titleBarOverlay:n===`linux`\?codexLinuxTitleBarOverlay\(r\):b2\(r\),\.\.\.e===`quickChat`/,
   );
-  assert.doesNotMatch(patched, /n===`win32`\?\{titleBarStyle:`hidden`,titleBarOverlay:b2\(r\)\}:\{titleBarStyle:`default`\}/);
-  assert.doesNotMatch(patched, /n===`win32`\|\|n===`linux`\?\{titleBarStyle:`hidden`,titleBarOverlay:b2\(r\)\}/);
+  assert.match(patched, /\.\.\.t\?\{\}:\{vibrancy:`menu`\}/);
+  assert.doesNotMatch(patched, /titleBarOverlay:b2\(r\),\.\.\.e===`quickChat`/);
 });
 
 test("uses a module-scoped Linux native titlebar helper when aliases shadow Electron", () => {
@@ -1737,7 +2588,7 @@ test("uses a module-scoped Linux native titlebar helper when aliases shadow Elec
     "function A3(e){return e===`avatarOverlay`}",
     "function I3({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return n&&!A3(t)&&(e===`darwin`||e===`win32`)?{backgroundColor:r?L4:K4,backgroundMaterial:e===`win32`?`none`:null}:e===`linux`&&!A3(t)?{backgroundColor:r?L4:K4,backgroundMaterial:null}:{backgroundColor:W4,backgroundMaterial:null}}",
     "function o3(e=1){return{color:W4,symbolColor:r.nativeTheme.shouldUseDarkColors?i3:r3,height:Math.round(g3*e)}}",
-    "function T3({appearance:e,opaqueWindowSurfaceEnabled:t,platform:n,windowZoom:r=1}){switch(e){case`primary`:return n===`darwin`?t?{titleBarStyle:`hiddenInset`,trafficLightPosition:a3(r)}:{vibrancy:`menu`,titleBarStyle:`hiddenInset`,trafficLightPosition:a3(r)}:n===`win32`?{titleBarStyle:`hidden`,titleBarOverlay:o3(r)}:{titleBarStyle:`default`};}}",
+    "function T3({appearance:e,opaqueWindowSurfaceEnabled:t,platform:n,windowZoom:r=1}){switch(e){case`quickChat`:case`primary`:return n===`darwin`?{titleBarStyle:`hiddenInset`,trafficLightPosition:a3(r),...e===`quickChat`?{hasShadow:!0,resizable:!0,transparent:!0}:{},...t?{}:{vibrancy:`menu`}}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:o3(r),...e===`quickChat`?{resizable:!0}:{}}:{titleBarStyle:`default`,...e===`quickChat`?{resizable:!0}:{}};}}",
   ].join("");
   const { value, warnings } = captureWarns(() =>
     applyPatchTwice(applyLinuxNativeTitlebarPatch, source),
@@ -1749,7 +2600,7 @@ test("uses a module-scoped Linux native titlebar helper when aliases shadow Elec
   );
   assert.match(
     value,
-    /n===`linux`\?\{titleBarStyle:`hidden`,titleBarOverlay:codexLinuxTitleBarOverlay\(r\)\}/,
+    /titleBarOverlay:n===`linux`\?codexLinuxTitleBarOverlay\(r\):o3\(r\),\.\.\.e===`quickChat`/,
   );
   assert.doesNotMatch(value, /titleBarOverlay:\{color:r\.nativeTheme\.shouldUseDarkColors/);
   assert.deepEqual(warnings, []);
@@ -1760,14 +2611,14 @@ test("updates the Linux native titlebar overlay when nativeTheme changes", () =>
     "function A2(e){return e===`avatarOverlay`}",
     "function I2({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return n&&!A2(t)&&(e===`darwin`||e===`win32`)?{backgroundColor:r?a2:o2,backgroundMaterial:e===`win32`?`none`:null}:e===`linux`&&!A2(t)?{backgroundColor:r?a2:o2,backgroundMaterial:null}:{backgroundColor:i2,backgroundMaterial:null}}",
     "function b2(e=1){return{color:i2,symbolColor:a.nativeTheme.shouldUseDarkColors?v2:_2,height:Math.round(g2*e)}}",
-    "case`primary`:return n===`darwin`?t?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:{vibrancy:`menu`,titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:n===`win32`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r)}:{titleBarStyle:`default`};",
-    "installWindowsTitleBarOverlaySync(e,t){if(process.platform!==`win32`||t!==`primary`)return;let n=()=>{e.isDestroyed()||e.setTitleBarOverlay(b2(this.windowZooms.get(e.id)))};return a.nativeTheme.on(`updated`,n),n(),()=>{a.nativeTheme.off(`updated`,n)}}",
+    "case`quickChat`:case`primary`:return n===`darwin`?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r),...e===`quickChat`?{hasShadow:!0,resizable:!0,transparent:!0}:{},...t?{}:{vibrancy:`menu`}}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r),...e===`quickChat`?{resizable:!0}:{}}:{titleBarStyle:`default`,...e===`quickChat`?{resizable:!0}:{}};",
+    "installApplicationMenuTitleBarOverlaySync(e,t){if(process.platform!==`win32`&&process.platform!==`linux`||t!==`primary`&&t!==`quickChat`)return;let n=()=>{e.isDestroyed()||e.setTitleBarOverlay(b2(this.windowZooms.get(e.id)))};return a.nativeTheme.on(`updated`,n),n(),()=>{a.nativeTheme.off(`updated`,n)}}",
   ].join("");
   const patched = applyPatchTwice(applyLinuxNativeTitlebarPatch, source);
 
   assert.match(
     patched,
-    /if\(\(process\.platform!==`win32`&&process\.platform!==`linux`\)\|\|t!==`primary`\)return/,
+    /if\(process\.platform!==`win32`&&process\.platform!==`linux`\|\|t!==`primary`&&t!==`quickChat`\)return/,
   );
   assert.match(
     patched,
@@ -1782,8 +2633,8 @@ test("redirects the renamed Linux-aware titlebar overlay sync away from the tran
     "function A2(e){return e===`avatarOverlay`}",
     "function I2({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return n&&!A2(t)&&(e===`darwin`||e===`win32`)?{backgroundColor:r?a2:o2,backgroundMaterial:e===`win32`?`none`:null}:e===`linux`&&!A2(t)?{backgroundColor:r?a2:o2,backgroundMaterial:null}:{backgroundColor:i2,backgroundMaterial:null}}",
     "function b2(e=1){return{color:i2,symbolColor:a.nativeTheme.shouldUseDarkColors?v2:_2,height:Math.round(g2*e)}}",
-    "case`primary`:return n===`darwin`?t?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:{vibrancy:`menu`,titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r)}:{titleBarStyle:`default`};",
-    "installApplicationMenuTitleBarOverlaySync(e,t){if(process.platform!==`win32`&&process.platform!==`linux`||t!==`primary`)return;let n=()=>{e.isDestroyed()||e.setTitleBarOverlay(b2(this.windowZooms.get(e.id)))};return a.nativeTheme.on(`updated`,n),n(),()=>{a.nativeTheme.off(`updated`,n)}}",
+    "case`quickChat`:case`primary`:return n===`darwin`?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r),...e===`quickChat`?{hasShadow:!0,resizable:!0,transparent:!0}:{},...t?{}:{vibrancy:`menu`}}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r),...e===`quickChat`?{resizable:!0}:{}}:{titleBarStyle:`default`,...e===`quickChat`?{resizable:!0}:{}};",
+    "installApplicationMenuTitleBarOverlaySync(e,t){if(process.platform!==`win32`&&process.platform!==`linux`||t!==`primary`&&t!==`quickChat`)return;let n=()=>{e.isDestroyed()||e.setTitleBarOverlay(b2(this.windowZooms.get(e.id)))};return a.nativeTheme.on(`updated`,n),n(),()=>{a.nativeTheme.off(`updated`,n)}}",
     "process.platform===`darwin`?n.setWindowButtonPosition(y2(t)):(process.platform===`win32`||process.platform===`linux`)&&(this.windowZooms.set(n.id,t),n.setTitleBarOverlay(b2(t)))",
   ].join("");
   const { value: patched, warnings } = captureWarns(() =>
@@ -1792,11 +2643,11 @@ test("redirects the renamed Linux-aware titlebar overlay sync away from the tran
 
   assert.match(
     patched,
-    /n===`linux`\?\{titleBarStyle:`hidden`,titleBarOverlay:codexLinuxTitleBarOverlay\(r\)\}/,
+    /titleBarOverlay:n===`linux`\?codexLinuxTitleBarOverlay\(r\):b2\(r\),\.\.\.e===`quickChat`/,
   );
   assert.match(
     patched,
-    /installApplicationMenuTitleBarOverlaySync\(e,t\)\{if\(\(process\.platform!==`win32`&&process\.platform!==`linux`\)\|\|t!==`primary`\)return/,
+    /installApplicationMenuTitleBarOverlaySync\(e,t\)\{if\(process\.platform!==`win32`&&process\.platform!==`linux`\|\|t!==`primary`&&t!==`quickChat`\)return/,
   );
   assert.match(
     patched,
@@ -1816,8 +2667,8 @@ test("updates every Linux zoom titlebar overlay refresh call site", () => {
     "function A2(e){return e===`avatarOverlay`}",
     "function I2({platform:e,appearance:t,opaqueWindowsEnabled:n,prefersDarkColors:r}){return n&&!A2(t)&&(e===`darwin`||e===`win32`)?{backgroundColor:r?a2:o2,backgroundMaterial:e===`win32`?`none`:null}:e===`linux`&&!A2(t)?{backgroundColor:r?a2:o2,backgroundMaterial:null}:{backgroundColor:i2,backgroundMaterial:null}}",
     "function b2(e=1){return{color:i2,symbolColor:a.nativeTheme.shouldUseDarkColors?v2:_2,height:Math.round(g2*e)}}",
-    "case`primary`:return n===`darwin`?t?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:{vibrancy:`menu`,titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r)}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r)}:{titleBarStyle:`default`};",
-    "installApplicationMenuTitleBarOverlaySync(e,t){if(process.platform!==`win32`&&process.platform!==`linux`||t!==`primary`)return;let n=()=>{e.isDestroyed()||e.setTitleBarOverlay(b2(this.windowZooms.get(e.id)))};return a.nativeTheme.on(`updated`,n),n(),()=>{a.nativeTheme.off(`updated`,n)}}",
+    "case`quickChat`:case`primary`:return n===`darwin`?{titleBarStyle:`hiddenInset`,trafficLightPosition:y2(r),...e===`quickChat`?{hasShadow:!0,resizable:!0,transparent:!0}:{},...t?{}:{vibrancy:`menu`}}:n===`win32`||n===`linux`?{titleBarStyle:`hidden`,titleBarOverlay:b2(r),...e===`quickChat`?{resizable:!0}:{}}:{titleBarStyle:`default`,...e===`quickChat`?{resizable:!0}:{}};",
+    "installApplicationMenuTitleBarOverlaySync(e,t){if(process.platform!==`win32`&&process.platform!==`linux`||t!==`primary`&&t!==`quickChat`)return;let n=()=>{e.isDestroyed()||e.setTitleBarOverlay(b2(this.windowZooms.get(e.id)))};return a.nativeTheme.on(`updated`,n),n(),()=>{a.nativeTheme.off(`updated`,n)}}",
     "process.platform===`darwin`?n.setWindowButtonPosition(y2(t)):(process.platform===`win32`||process.platform===`linux`)&&(this.windowZooms.set(n.id,t),n.setTitleBarOverlay(b2(t)))",
     "process.platform===`darwin`?o.setWindowButtonPosition(y2(i)):(process.platform===`win32`||process.platform===`linux`)&&(this.windowZooms.set(o.id,i),o.setTitleBarOverlay(b2(i)))",
   ].join("");
@@ -1921,63 +2772,279 @@ test("removes native title tooltip from the thread side panel toolbar action", (
   assert.doesNotMatch(patched, /title:i/);
 });
 
-test("adds Linux menu hiding next to Windows removeMenu calls", () => {
+test("removes the Linux menu next to Windows removeMenu calls", () => {
   const source = "process.platform===`win32`&&k.removeMenu(),";
   const patched = applyPatchTwice(applyLinuxMenuPatch, source);
 
   assert.equal(
     patched,
-    "process.platform===`linux`&&k.setMenuBarVisibility(!1),process.platform===`win32`&&k.removeMenu(),",
+    "process.platform===`linux`&&k.removeMenu(),process.platform===`win32`&&k.removeMenu(),",
   );
 });
 
 test("patches remaining Windows menu snippets when another copy is already Linux-patched", () => {
   const windowsMenuSnippet = "process.platform===`win32`&&k.removeMenu(),";
-  const linuxMenuPatch = "process.platform===`linux`&&k.setMenuBarVisibility(!1),";
+  const linuxMenuPatch = "process.platform===`linux`&&k.removeMenu(),";
   const source = `${linuxMenuPatch}${windowsMenuSnippet}function createSecondWindow(){${windowsMenuSnippet}}`;
 
   const patched = applyPatchTwice(applyLinuxMenuPatch, source);
 
-  assert.equal((patched.match(/setMenuBarVisibility\(!1\)/g) ?? []).length, 2);
+  assert.equal((patched.match(/removeMenu\(\)/g) ?? []).length, 4);
   assert.match(
     patched,
-    /function createSecondWindow\(\)\{process\.platform===`linux`&&k\.setMenuBarVisibility\(!1\),process\.platform===`win32`&&k\.removeMenu\(\),\}/,
+    /function createSecondWindow\(\)\{process\.platform===`linux`&&k\.removeMenu\(\),process\.platform===`win32`&&k\.removeMenu\(\),\}/,
   );
 });
 
-test("recognizes the frameless-titlebar upgraded menu snippet as already applied", () => {
+test("upgrades legacy Linux menu snippets to remove the menu", () => {
   const source =
     "process.platform===`linux`&&(k.setMenuBarVisibility(!1),k.removeMenu?.()),process.platform===`win32`&&k.removeMenu(),";
 
   const patched = applyPatchTwice(applyLinuxMenuPatch, source);
 
-  assert.equal(patched, source);
-  assert.equal((patched.match(/setMenuBarVisibility\(!1\)/g) ?? []).length, 1);
-});
-
-test("recognizes already-applied Linux opaque background patch", () => {
-  const patched = applyPatchTwice(applyLinuxOpaqueBackgroundPatch, alreadyOpaqueBackgroundBundle);
-  assert.equal(patched, alreadyOpaqueBackgroundBundle);
-});
-
-test("uses the local transparent appearance predicate for Linux opaque backgrounds", () => {
-  const patched = applyPatchTwice(
-    applyLinuxOpaqueBackgroundPatch,
-    opaqueBackgroundBundleWithDriftingGw,
-  );
-
-  assert.match(patched, /e===`linux`&&!OM\(t\)\?\{backgroundColor:r\?lM:uM/);
-  assert.doesNotMatch(patched, /process\.platform===`linux`&&!gw\(t\)/);
-});
-
-test("patches current BrowserWindow background helper shape for Linux opaque backgrounds", () => {
-  const patched = applyPatchTwice(applyLinuxOpaqueBackgroundPatch, currentOpaqueBackgroundBundle);
-
-  assert.match(
+  assert.equal(
     patched,
-    /:e===`linux`&&!vq\(t\)\?\{backgroundColor:r\?\$K:eq,backgroundMaterial:null\}:e===`win32`&&!vq\(t\)\?/,
+    "process.platform===`linux`&&k.removeMenu(),process.platform===`win32`&&k.removeMenu(),",
   );
-  assert.match(patched, /vq\(e\).*hotkeyWindowThread/);
+  assert.doesNotMatch(patched, /setMenuBarVisibility/);
+});
+
+test("recognizes the Linux removeMenu snippet as already applied", () => {
+  const source =
+    "process.platform===`linux`&&k.removeMenu(),process.platform===`win32`&&k.removeMenu(),";
+
+  const patched = applyPatchTwice(applyLinuxMenuPatch, source);
+
+  assert.equal(patched, source);
+  assert.equal((patched.match(/process\.platform===`linux`&&k\.removeMenu\(\),/g) ?? []).length, 1);
+});
+
+test("preserves the global application menu on Linux for accelerators", () => {
+  const source =
+    "let $e=[{role:`help`,submenu:[]}],et=n.Menu.buildFromTemplate($e);n.Menu.setApplicationMenu(et);";
+  const patched = applyPatchTwice(applyLinuxApplicationMenuPatch, source);
+
+  assert.equal(patched, source);
+});
+
+test("migrates a Linux-suppressed application menu back to the real menu", () => {
+  const source =
+    "let et=n.Menu.buildFromTemplate($e);n.Menu.setApplicationMenu(process.platform===`linux`?null:et);";
+
+  const patched = applyPatchTwice(applyLinuxApplicationMenuPatch, source);
+
+  assert.equal(patched, "let et=n.Menu.buildFromTemplate($e);n.Menu.setApplicationMenu(et);");
+});
+
+function nativeReloadHandlerSource(handlerAlias = "runReload", focusedWebContentsProvider = "webContents") {
+  return `${handlerAlias}=async(force=!1)=>{let target=await getWindow();if(!target)return;let manager=getBrowserSidebarManager(target);if(manager==null)return;let focused=${focusedWebContentsProvider}.getFocusedWebContents();if(force){manager.reloadActiveVisiblePageWithOptions(target,{ignoreCache:!0},focused);return}manager.reloadActiveVisiblePage(target,focused)}`;
+}
+
+function nativeReloadMenuSource(
+  handlerAlias = "runReload",
+  focusedWebContentsProvider = "webContents",
+) {
+  return `let focusedWindow=BrowserWindow.getFocusedWindow(),focusedWebContents=${focusedWebContentsProvider}.getFocusedWebContents(),reloadEnabled=focusedWindow!=null&&!focusedWindow.isDestroyed()&&!!getBrowserSidebarManager(focusedWindow)?.canReloadActiveVisiblePage(focusedWindow,focusedWebContents),${nativeReloadHandlerSource(handlerAlias, focusedWebContentsProvider)}`;
+}
+
+test("routes persisted native reload shortcuts to the Linux app webview without changing their mapping", async () => {
+  const decoy = "decoyReload=async(force=!1)=>{let target=await getWindow();if(!target)return;doSomething(target)}";
+  const persistedMenu = "persistedMenu={commandId:`reload`,mapping:settings.get(`nativeReloadShortcut`)}";
+  const source = `${decoy};${nativeReloadMenuSource()};${persistedMenu};this.runReload=runReload;`;
+  const patched = applyPatchTwice(applyLinuxAppReloadShortcutsPatch, source);
+  const reloads = [];
+  const context = {
+    BrowserWindow: { getFocusedWindow() { return null; } },
+    getBrowserSidebarManager() { throw new Error("Linux app reload must not use Browser Sidebar"); },
+    getWindow: async () => ({
+      reload() { reloads.push("reload"); },
+      webContents: { reloadIgnoringCache() { reloads.push("hard-reload"); } },
+    }),
+    process: { platform: "linux" },
+    settings: { get() { return "persisted-shortcut"; } },
+    webContents: { getFocusedWebContents() { return null; } },
+  };
+  vm.runInNewContext(patched, context);
+
+  await context.runReload(false);
+  await context.runReload(true);
+
+  assert.deepEqual(reloads, ["reload", "hard-reload"]);
+  assert.match(patched, /reloadEnabled=process\.platform===`linux`\|\|focusedWindow!=null/);
+  assert.match(patched, new RegExp(escapeRegExp(decoy)));
+  assert.match(patched, new RegExp(escapeRegExp(persistedMenu)));
+  assert.doesNotMatch(patched, /(?:Ctrl|Cmd|Alt)\+/);
+});
+
+test("keeps Browser Sidebar reload behavior outside Linux", async () => {
+  const source = `${nativeReloadMenuSource()};this.runReload=runReload;`;
+  const patched = applyPatchTwice(applyLinuxAppReloadShortcutsPatch, source);
+  const reloads = [];
+  const context = {
+    BrowserWindow: { getFocusedWindow() { return null; } },
+    getBrowserSidebarManager() {
+      return {
+        reloadActiveVisiblePageWithOptions(_window, options, focused) {
+          reloads.push(["hard-reload", options, focused]);
+        },
+        reloadActiveVisiblePage(_window, focused) { reloads.push(["reload", focused]); },
+      };
+    },
+    getWindow: async () => ({ reload() { throw new Error("non-Linux must use Browser Sidebar"); } }),
+    process: { platform: "darwin" },
+    webContents: { getFocusedWebContents() { return "focused-webcontents"; } },
+  };
+  vm.runInNewContext(patched, context);
+
+  await context.runReload(false);
+  await context.runReload(true);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(reloads)), [
+    ["reload", "focused-webcontents"],
+    ["hard-reload", { ignoreCache: true }, "focused-webcontents"],
+  ]);
+});
+
+test("patches the current dotted webContents provider shape", async () => {
+  const source = `${nativeReloadMenuSource("runReload", "c.webContents")};this.runReload=runReload;`;
+  const patched = applyPatchTwice(applyLinuxAppReloadShortcutsPatch, source);
+  const reloads = [];
+  const context = {
+    BrowserWindow: { getFocusedWindow() { return null; } },
+    c: { webContents: { getFocusedWebContents() { return null; } } },
+    getBrowserSidebarManager() { throw new Error("Linux app reload must not use Browser Sidebar"); },
+    getWindow: async () => ({
+      reload() { reloads.push("reload"); },
+      webContents: { reloadIgnoringCache() { reloads.push("hard-reload"); } },
+    }),
+    process: { platform: "linux" },
+  };
+  vm.runInNewContext(patched, context);
+
+  await context.runReload(false);
+  await context.runReload(true);
+
+  assert.deepEqual(reloads, ["reload", "hard-reload"]);
+  assert.match(patched, /codexLinuxReloadAppWindow/);
+});
+
+test("fails soft when multiple semantic native reload handlers are present", () => {
+  const source = `${nativeReloadMenuSource()},${nativeReloadMenuSource("secondReload")};`;
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxAppReloadShortcutsPatch(source),
+  );
+
+  assert.equal(patched, source);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find native browser reload menu actions — skipping Linux app reload shortcut patch",
+  ]);
+});
+
+test("fails soft when no semantic native reload handler is present", () => {
+  const source = "let focusedWindow=BrowserWindow.getFocusedWindow(),focusedWebContents=webContents.getFocusedWebContents(),reloadEnabled=focusedWindow!=null&&!focusedWindow.isDestroyed()&&!!getBrowserSidebarManager(focusedWindow)?.canReloadActiveVisiblePage(focusedWindow,focusedWebContents),runReload=async(force=!1)=>{let target=await getWindow();if(!target)return;doSomething(target)};";
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxAppReloadShortcutsPatch(source),
+  );
+
+  assert.equal(patched, source);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find native browser reload menu actions — skipping Linux app reload shortcut patch",
+  ]);
+});
+
+test("fails soft when the semantic reload handler uses the wrong focused-webContents provider", () => {
+  const source = nativeReloadMenuSource().replace(
+    nativeReloadHandlerSource(),
+    nativeReloadHandlerSource("runReload", "otherWebContents"),
+  );
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxAppReloadShortcutsPatch(source),
+  );
+
+  assert.equal(patched, source);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find native browser reload menu actions — skipping Linux app reload shortcut patch",
+  ]);
+});
+
+test("fails soft when dotted enablement and handler providers differ", () => {
+  const source = nativeReloadMenuSource("runReload", "c.webContents").replace(
+    nativeReloadHandlerSource("runReload", "c.webContents"),
+    nativeReloadHandlerSource("runReload", "d.webContents"),
+  );
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxAppReloadShortcutsPatch(source),
+  );
+
+  assert.equal(patched, source);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find native browser reload menu actions — skipping Linux app reload shortcut patch",
+  ]);
+});
+
+test("patches the correlated reload handler but leaves a wrong-provider semantic decoy untouched", () => {
+  const wrongProviderDecoy = nativeReloadHandlerSource("wrongProviderReload", "d.webContents");
+  const source = `${nativeReloadMenuSource("runReload", "c.webContents")},${wrongProviderDecoy};`;
+  const patched = applyPatchTwice(applyLinuxAppReloadShortcutsPatch, source);
+
+  assert.match(patched, /runReload=async\(force=!1\)=>\{let target=await getWindow\(\);if\(!target\)return;if\(process\.platform===`linux`\)/);
+  assert.match(patched, new RegExp(escapeRegExp(wrongProviderDecoy)));
+});
+
+test("patches a valid reload pair despite an orphan enablement anchor", () => {
+  const orphanAnchor = "orphanFocused=orphanWebContents.getFocusedWebContents(),orphanEnabled=focusedWindow!=null&&!focusedWindow.isDestroyed()&&!!getBrowserSidebarManager(focusedWindow)?.canReloadActiveVisiblePage(focusedWindow,orphanFocused)";
+  const source = `${nativeReloadMenuSource()},${orphanAnchor};`;
+  const patched = applyPatchTwice(applyLinuxAppReloadShortcutsPatch, source);
+
+  assert.match(patched, /reloadEnabled=process\.platform===`linux`\|\|focusedWindow!=null/);
+  assert.match(patched, new RegExp(escapeRegExp(orphanAnchor)));
+});
+
+test("patches the selected enablement anchor by range when an identical orphan appears first", () => {
+  const enablementAnchor = "reloadEnabled=focusedWindow!=null&&!focusedWindow.isDestroyed()&&!!getBrowserSidebarManager(focusedWindow)?.canReloadActiveVisiblePage(focusedWindow,focusedWebContents)";
+  const validProviderAssignment = "focusedWebContents=c.webContents.getFocusedWebContents()";
+  const source = `let focusedWindow=BrowserWindow.getFocusedWindow(),focusedWebContents=orphan.webContents.getFocusedWebContents(),${enablementAnchor},${validProviderAssignment},${enablementAnchor},${nativeReloadHandlerSource("runReload", "c.webContents")};`;
+  const patched = applyPatchTwice(applyLinuxAppReloadShortcutsPatch, source);
+  const validProviderIndex = source.indexOf(validProviderAssignment);
+
+  assert.equal(
+    patched.slice(0, patched.indexOf(validProviderAssignment)),
+    source.slice(0, validProviderIndex),
+  );
+  assert.match(
+    patched.slice(patched.indexOf(validProviderAssignment)),
+    /reloadEnabled=process\.platform===`linux`\|\|focusedWindow!=null/,
+  );
+});
+
+test("fails soft when multiple fully correlated native reload pairs are present", () => {
+  const secondPair = nativeReloadMenuSource("secondReload", "d.webContents")
+    .replaceAll("focusedWindow", "secondFocusedWindow")
+    .replaceAll("focusedWebContents", "secondFocusedWebContents")
+    .replaceAll("getBrowserSidebarManager", "secondGetBrowserSidebarManager");
+  const source = `${nativeReloadMenuSource("runReload", "c.webContents")};${secondPair};`;
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxAppReloadShortcutsPatch(source),
+  );
+
+  assert.equal(patched, source);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find native browser reload menu actions — skipping Linux app reload shortcut patch",
+  ]);
+});
+
+test("fails soft for computed and call focused-webContents providers", () => {
+  for (const provider of ["c[`webContents`]", "getElectron().webContents"]) {
+    const source = nativeReloadMenuSource("runReload", provider);
+    const { value: patched, warnings } = captureWarns(() =>
+      applyLinuxAppReloadShortcutsPatch(source),
+    );
+
+    assert.equal(patched, source, provider);
+    assert.deepEqual(warnings, [
+      "WARN: Could not find native browser reload menu actions — skipping Linux app reload shortcut patch",
+    ], provider);
+  }
 });
 
 test("patches current opaque window surface background helper shape for Linux", () => {
@@ -1994,33 +3061,87 @@ test("patches current opaque window surface background helper shape for Linux", 
   assert.match(patched, /opaqueWindowSurfaceEnabled:n/);
 });
 
+test("keeps the opaque background patch idempotent after pet overlay composition", () => {
+  const source = `${latestAvatarOverlayBundleFixture()}${currentOpaqueWindowSurfaceBackgroundBundle}`;
+  const corePatched = applyLinuxOpaqueBackgroundPatch(source);
+  const petPatched = applyPetOverlayPatch(corePatched);
+  const { value: rerun, warnings } = captureWarns(() =>
+    applyLinuxOpaqueBackgroundPatch(petPatched),
+  );
+
+  assert.notEqual(petPatched, corePatched);
+  assert.equal(rerun, petPatched);
+  assert.deepEqual(warnings, []);
+});
+
+test("patches an opaque background helper composed by pet overlay first", () => {
+  const source = `${latestAvatarOverlayBundleFixture()}${currentOpaqueWindowSurfaceBackgroundBundle}`;
+  const petPatched = applyPetOverlayPatch(source);
+  const { value: corePatched, warnings } = captureWarns(() =>
+    applyLinuxOpaqueBackgroundPatch(petPatched),
+  );
+
+  assert.notEqual(corePatched, petPatched);
+  assert.match(
+    corePatched,
+    /t===`avatarOverlay`\?\{backgroundColor:`#00000000`,backgroundMaterial:null\}:n\?[^;]+:e===`linux`&&!g3\(t\)\?\{backgroundColor:r\?G4:K4,backgroundMaterial:null\}:/,
+  );
+  assert.deepEqual(warnings, []);
+});
+
+test("reports drift in a malformed opaque background helper after pet overlay composition", () => {
+  const source = `${latestAvatarOverlayBundleFixture()}${currentOpaqueWindowSurfaceBackgroundBundle}`;
+  const composed = applyPetOverlayPatch(applyLinuxOpaqueBackgroundPatch(source));
+  const drifted = composed.replace(
+    ":e===`linux`&&!g3(t)?{backgroundColor:r?G4:K4,backgroundMaterial:null}:",
+    ":e===`linux`?{backgroundColor:r?G4:K4,backgroundMaterial:null}:",
+  );
+  const { value: rerun, warnings } = captureWarns(() =>
+    applyLinuxOpaqueBackgroundPatch(drifted),
+  );
+
+  assert.notEqual(drifted, composed);
+  assert.equal(rerun, drifted);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find BrowserWindow background function signature — skipping background patch",
+  ]);
+});
+
+test("does not mistake an unrelated Linux background branch for the current patched helper", () => {
+  const unrelatedLinuxBackground =
+    "function legacy({platform:e,appearance:t,prefersDarkColors:r}){return e===`linux`&&!x(t)?{backgroundColor:r?D:L,backgroundMaterial:null}:null}";
+  const patched = applyPatchTwice(
+    applyLinuxOpaqueBackgroundPatch,
+    `${unrelatedLinuxBackground}${currentOpaqueWindowSurfaceBackgroundBundle}`,
+  );
+
+  assert.match(
+    patched,
+    /function S3\([^}]+\}\)\{return n\?[^;]+:e===`linux`&&!g3\(t\)\?\{backgroundColor:r\?G4:K4,backgroundMaterial:null\}:e===`win32`&&!g3\(t\)\?/,
+  );
+  assert.match(patched, new RegExp(escapeRegExp(unrelatedLinuxBackground)));
+});
+
+test("reports drift when the current opaque background helper has no surface predicate", () => {
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxOpaqueBackgroundPatch(currentOpaqueWindowSurfaceBackgroundHelper),
+  );
+
+  assert.equal(patched, currentOpaqueWindowSurfaceBackgroundHelper);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find opaque surface mode predicate — skipping Linux opaque surface patch",
+  ]);
+});
+
 test("patches current webview opaque window default bundle shapes", () => {
-  const resolvedThemeSource =
-    "function oe(e,t){let n=o[t];return{accent:p(e?.accent)??n.accent,contrast:se(e?.contrast,n.contrast),fonts:le(e?.fonts),ink:p(e?.ink)??n.ink,opaqueWindows:e?.opaqueWindows??n.opaqueWindows,semanticColors:ue(e?.semanticColors,n.semanticColors),surface:p(e?.surface)??n.surface}}";
-  const runtimeSource =
-    "let{data:c}=Qc(y.APPEARANCE_LIGHT_CHROME_THEME,s),l;let{data:u}=Qc(y.APPEARANCE_DARK_CHROME_THEME,l),d;let x=b,S;let C=o===`light`?x:S,w;if(C.opaqueWindows&&!ba()){e.classList.add(`electron-opaque`)}";
-  const appMainRuntimeSource =
-    "document.querySelector(`[data-codex-window-type=\"electron\"]`);if(e){if((g.opaqueWindows||i)&&!pc()){e.classList.add(`electron-opaque`);return}e.classList.remove(`electron-opaque`)}";
   const settingsSource =
     "function sn(){let{canImportThemeString:u,setThemePatch:b,theme:x}=p(t),S=vn(r,t),k=[{label:i}],A=[];return x.opaqueWindows}";
 
-  const patchedResolvedTheme = applyPatchTwice(applyLinuxOpaqueWindowsDefaultPatch, resolvedThemeSource);
-  const patchedRuntime = applyPatchTwice(applyLinuxOpaqueWindowsDefaultPatch, runtimeSource);
-  const patchedAppMainRuntime = applyPatchTwice(applyLinuxOpaqueWindowsDefaultPatch, appMainRuntimeSource);
   const patchedSettings = applyPatchTwice(applyLinuxOpaqueWindowsDefaultPatch, settingsSource);
 
-  assert.match(patchedResolvedTheme, /opaqueWindows:e\?\.opaqueWindows\?\?\(typeof navigator<`u`&&/);
-  assert.match(
-    patchedRuntime,
-    /document\.documentElement\.dataset\.codexOs===`linux`&&\(\(o===`light`\?c:u\)\?\.opaqueWindows==null&&\(C=\{\.\.\.C,opaqueWindows:!0\}\)\)/,
-  );
   assert.match(
     patchedSettings,
     /navigator\.userAgent\.includes\(`Linux`\)&&x\?\.opaqueWindows==null&&\(x=\{\.\.\.x,opaqueWindows:!0\}\);let S=/,
-  );
-  assert.match(
-    patchedAppMainRuntime,
-    /document\.documentElement\.dataset\.codexOs===`linux`&&g\.opaqueWindows==null&&\(g=\{\.\.\.g,opaqueWindows:!0\}\),\(g\.opaqueWindows\|\|i\)&&!pc\(\)/,
   );
 });
 
@@ -2134,32 +3255,49 @@ test("treats current service-tier helper bundles as already guarded", () => {
   assert.deepEqual(warnings, []);
 });
 
-test("warns when a matched webview opaque bundle has no known insertion point", () => {
-  const { warnings } = captureWarns(() =>
-    applyLinuxOpaqueWindowsDefaultPatch("function runtime(){let C=theme;if(C.opaqueWindows&&!ba()){}}"),
-  );
+test("dedupes flattened skills lists across repeated cwd buckets", () => {
+  const source = [
+    "const handlers={\"list-skills-for-host\":()=>null};",
+    "function FJ(){let y=[",
+    "{skills:[{path:`/skills/a/SKILL.md`,name:`A`},{path:`/skills/b/SKILL.md`,name:`B`},{name:`Loose`}]},",
+    "{skills:[{path:`/skills/a/SKILL.md`,name:`A duplicate`},{id:`skill-c`,name:`C`},{name:`Loose duplicate`}]},",
+    "{skills:[{id:`skill-c`,name:`C duplicate`},{privateIdentity:`plugin-d`,name:`D`},{privateIdentity:`plugin-d`,name:`D duplicate`}]}",
+    "],b;b=y.flatMap(IJ);return b}",
+    "function IJ(e){return e.skills}",
+  ].join("");
 
-  assert.deepEqual(warnings, [
-    "WARN: Could not find Linux opaque window default insertion point — skipping settings default patch",
-  ]);
+  const patched = applyPatchTwice(applyLinuxSkillsListDedupePatch, source);
+
+  assert.match(patched, /function codexLinuxDedupeSkills/);
+  assert.match(patched, /b=codexLinuxDedupeSkills\(y\.flatMap\(IJ\)\)/);
+
+  const result = vm.runInNewContext(`${patched};FJ();`);
+  const names = Array.from(result, (skill) => skill.name);
+  assert.deepEqual(
+    names,
+    ["A", "B", "Loose", "C", "Loose duplicate", "D"],
+  );
 });
 
-test("does not treat unrelated Linux userAgent checks as opaque window patches", () => {
-  const { warnings } = captureWarns(() =>
-    applyLinuxOpaqueWindowsDefaultPatch(
-      "function unrelated(){return navigator.userAgent.includes(`Linux`)&&ready}function runtime(){let C=theme;if(C.opaqueWindows&&!ba()){}}",
-    ),
-  );
+test("warns when the skills hook is recognizable but the flatten shape drifted", () => {
+  const source = [
+    "const handlers={\"list-skills-for-host\":()=>null};",
+    "function FJ(){let y=[],b;b=y.flatMap(e=>e.skills);return b}",
+    "function IJ(e){return e.skills}",
+  ].join("");
 
+  const { value, warnings } = captureWarns(() => applyLinuxSkillsListDedupePatch(source));
+
+  assert.equal(value, source);
   assert.deepEqual(warnings, [
-    "WARN: Could not find Linux opaque window default insertion point — skipping settings default patch",
+    "WARN: Could not find skills list flatten insertion point — skipping Linux skills dedupe patch",
   ]);
 });
 
 test("adds Linux avatar overlay mouse passthrough recovery", () => {
   const patched = applyPatchTwice(
     applyLinuxAvatarOverlayMousePassthroughPatch,
-    avatarOverlayBundleFixture(),
+    latestAvatarOverlayBundleFixture(),
   );
 
   assert.match(patched, /codexLinuxAvatarPassthroughRecoveryTimer/);
@@ -2172,16 +3310,17 @@ test("adds Linux avatar overlay mouse passthrough recovery", () => {
   assert.match(patched, /process\.env\.I3SOCK/);
   assert.match(patched, /codexLinuxApplyAvatarCompositorHints\(e\)/);
   assert.match(patched, /getNativeWindowHandle\?\.\(\)/);
-  assert.match(patched, /u\.execFile\(`xdotool`,\[`search`,`--pid`,String\(process\.pid\)\]/);
-  assert.match(patched, /u\.execFile\(`xwininfo`,\[`-id`,e\]/);
-  assert.match(patched, /u\.execFile\(`xprop`/);
+  assert.match(patched, /h\.execFile\(`xdotool`,\[`search`,`--pid`,String\(process\.pid\)\]/);
+  assert.match(patched, /h\.execFile\(`xwininfo`,\[`-id`,e\]/);
+  assert.match(patched, /h\.execFile\(`xprop`/);
   assert.match(patched, /_GTK_FRAME_EXTENTS/);
   assert.match(patched, /Override Redirect State/);
   assert.match(patched, /Absolute upper-left X/);
-  assert.match(patched, /Number\(l\)!==t\.x/);
-  assert.match(patched, /Number\(h\)!==t\.y/);
-  assert.match(patched, /Number\(d\)!==t\.width/);
-  assert.doesNotMatch(patched, /let\[,l,u,d,f\]=c/);
+  assert.match(patched, /Number\(__codexAvatarX\)!==t\.x/);
+  assert.match(patched, /Number\(__codexAvatarY\)!==t\.y/);
+  assert.match(patched, /Number\(__codexAvatarWidth\)!==t\.width/);
+  assert.match(patched, /Number\(__codexAvatarHeight\)!==t\.height/);
+  assert.doesNotMatch(patched, /let\[,l,h,d,f\]=c/);
   assert.doesNotMatch(patched, /this\.codexLinuxIsI3Session\(\)\)\{this\.codexLinuxStopAvatarPassthroughRecovery\(\),this\.codexLinuxAvatarInputShapeKey=null,this\.pointerInteractive=!0,this\.mousePassthroughEnabled&&\(this\.mousePassthroughEnabled=!1\),e\.setIgnoreMouseEvents\(!1\);return\}/);
   assert.match(patched, /if\(this\.codexLinuxIsAvatarShapeBackend\(\)&&typeof e\.setShape==`function`\)\{/);
   assert.match(patched, /if\(this\.codexLinuxIsAvatarShapeBackend\(\)&&typeof e\.setShape==`function`\)\{this\.codexLinuxStartAvatarPassthroughRecovery\(\),/);
@@ -2207,21 +3346,36 @@ test("adds Linux avatar overlay mouse passthrough recovery", () => {
   assert.doesNotMatch(patched, /let r=r\.screen\.getCursorScreenPoint\(\)/);
   assert.match(patched, /catch\{t=!0\}/);
   assert.match(patched, /this\.pointerInteractive=t/);
-  assert.match(patched, /displayBounds:n\.screen\.getDisplayNearestPoint\(n\.screen\.getCursorScreenPoint\(\)\)\.bounds\},process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)\}moveDrag\(e\)/);
-  assert.match(patched, /this\.dragState=null,this\.reclampWindowToVisibleDisplay\(\{shouldPersist:!0\}\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
-  assert.match(patched, /this\.applyLayout\(r\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
-  assert.match(patched, /this\.codexLinuxAvatarCompositorHintsApplied=!1,this\.codexLinuxAvatarCompositorHintsApplying=!1,this\.rendererReady=/);
-  assert.match(patched, /traySize:process\.platform===`linux`&&typeof this\.codexLinuxIsI3Session==`function`&&this\.codexLinuxIsI3Session\(\)\?this\.traySize:this\.traySize\?\?sV/);
-  assert.match(patched, /this\.setWindowBounds\(e,r\.windowBounds\),this\.sendLayoutToRenderer\(e\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
+  assert.match(patched, /this\.windowServerDragActive\|\|\(this\.windowServerDragWindowX=null\),process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)\}endDrag\(e,t\)/);
+  assert.match(patched, /this\.dockPresentation\(o\.anchor,o\.onDock\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)\}setElementSize/);
+  assert.match(patched, /this\.applyLatestElementSizes\(o\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
+  assert.match(patched, /this\.codexLinuxAvatarCompositorHintsApplied=!1,this\.codexLinuxAvatarCompositorHintsApplying=!1,this\.compositionHost\.setOverlayWindow\(e\)/);
+  assert.match(patched, /traySize:process\.platform===`linux`&&typeof this\.codexLinuxIsI3Session==`function`&&this\.codexLinuxIsI3Session\(\)\?this\.traySize:this\.traySize\?\?\(this\.layoutMode===`native`\?y5:v5\)/);
+  assert.match(patched, /this\.sendComputerUseCursorLocationToRenderer\(e\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)\}showWindow/);
   assert.match(patched, /e\.moveTop\(\),e\.showInactive\(\),process\.platform===`linux`&&this\.codexLinuxApplyAvatarCompositorHints\(e\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
   assert.doesNotMatch(patched, /codexLinuxRecoverAvatarPointerInteractivity/);
-  assert.match(patched, /this\.window===t&&\(this\.codexLinuxStopAvatarPassthroughRecovery\(\),this\.codexLinuxAvatarInputShapeKey=null,this\.codexLinuxAvatarCompositorHintsApplied=!1,this\.codexLinuxAvatarCompositorHintsApplying=!1,this\.cancelMomentum\(\)/);
+  assert.match(patched, /if\(this\.window!==e\)return;let t=this\.presentationVisibility!=null;this\.codexLinuxStopAvatarPassthroughRecovery\(\),this\.codexLinuxAvatarInputShapeKey=null,this\.codexLinuxAvatarCompositorHintsApplied=!1,this\.codexLinuxAvatarCompositorHintsApplying=!1,this\.cancelMomentum\(\)/);
+});
+
+test("keeps the avatar overlay core patch idempotent after pet overlay composition", () => {
+  const source = `${latestAvatarOverlayBundleFixture()}${currentOpaqueWindowSurfaceBackgroundBundle}`;
+  const corePatched = applyLinuxOpaqueBackgroundPatch(
+    applyLinuxAvatarOverlayMousePassthroughPatch(source),
+  );
+  const petPatched = applyPetOverlayPatch(corePatched);
+  const { value: rerun, warnings } = captureWarns(() =>
+    applyLinuxAvatarOverlayMousePassthroughPatch(petPatched),
+  );
+
+  assert.notEqual(petPatched, corePatched);
+  assert.equal(rerun, petPatched);
+  assert.deepEqual(warnings, []);
 });
 
 test("keeps Linux avatar overlay above the app while reply inputs are focusable", () => {
   const patched = applyPatchTwice(
     applyLinuxAvatarOverlayMousePassthroughPatch,
-    avatarOverlayBundleFixture(),
+    latestAvatarOverlayBundleFixture(),
   );
 
   assert.match(
@@ -2240,7 +3394,7 @@ test("keeps Linux avatar overlay above the app while reply inputs are focusable"
 test("Linux avatar overlay interactivity is bounded to avatar regions", () => {
   const patched = applyPatchTwice(
     applyLinuxAvatarOverlayMousePassthroughPatch,
-    avatarOverlayBundleFixture(),
+    latestAvatarOverlayBundleFixture(),
   );
   const cursor = { x: 5843, y: 1036 };
   let ozonePlatform = "";
@@ -2252,13 +3406,11 @@ test("Linux avatar overlay interactivity is bounded to avatar regions", () => {
       platform: "linux",
     },
     require(moduleName) {
-      assert.equal(moduleName, "node:child_process");
-      return { execFile() {} };
-    },
-    pV(bounds) {
-      return bounds;
-    },
-    n: {
+      if (moduleName === "node:child_process") {
+        return { execFile() {} };
+      }
+      assert.equal(moduleName, "electron");
+      return {
       app: {
         getName: () => "Codex",
         commandLine: { getSwitchValue: () => ozonePlatform },
@@ -2267,6 +3419,7 @@ test("Linux avatar overlay interactivity is bounded to avatar regions", () => {
         getCursorScreenPoint: () => cursor,
         getDisplayNearestPoint: () => ({ bounds: { x: 0, y: 0, width: 800, height: 600 } }),
       },
+      };
     },
   };
   vm.runInNewContext(`${patched};globalThis.AvatarOverlayController=fV;`, context);
@@ -2339,56 +3492,53 @@ test("Linux avatar overlay interactivity is bounded to avatar regions", () => {
   assert.equal(setShapeCalls, 1);
   ozonePlatform = "wayland";
   assert.equal(controller.codexLinuxIsAvatarShapeBackend(), false);
+  ozonePlatform = "x11";
+  let failingBoundsCalls = 0;
   assert.equal(
     controller.codexLinuxApplyAvatarInputShape({
       isDestroyed: () => false,
       getContentBounds: () => {
+        failingBoundsCalls += 1;
         throw new Error("drift");
       },
       setShape() {},
     }),
     false,
   );
+  assert.equal(failingBoundsCalls, 1);
+  controller.codexLinuxAvatarInputShapeKey = null;
+  let failingSetShapeCalls = 0;
   assert.equal(
     controller.codexLinuxApplyAvatarInputShape({
       isDestroyed: () => false,
       getContentBounds: () => ({ x: 5743, y: 936, width: 356, height: 320 }),
       setShape() {
+        failingSetShapeCalls += 1;
         throw new Error("unsupported");
       },
     }),
     false,
   );
+  assert.equal(failingSetShapeCalls, 1);
 });
 
-test("keeps avatar overlay layout sync working after layout alias drift", () => {
-  const source = avatarOverlayBundleFixture().replaceAll("r.windowBounds", "n.windowBounds");
-
-  const patched = applyPatchTwice(applyLinuxAvatarOverlayMousePassthroughPatch, source);
-
-  assert.match(
-    patched,
-    /this\.setWindowBounds\(e,n\.windowBounds\),this\.sendLayoutToRenderer\(e\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)\}getLayout\(e\)\{/,
-  );
-});
-
-test("keeps avatar overlay interactivity working after native presentation drift", () => {
+test("patches the latest avatar overlay class without depending on adjacent methods", () => {
   const { value: patched, warnings } = captureWarns(() =>
     applyPatchTwice(
       applyLinuxAvatarOverlayMousePassthroughPatch,
-      currentAvatarOverlayBundleFixture(),
+      latestAvatarOverlayBundleFixture(),
     ),
   );
 
   assert.deepEqual(warnings, []);
-  assert.match(patched, /this\.applyLatestElementSizes\(i\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
-  assert.match(patched, /this\.codexLinuxAvatarCompositorHintsApplied=!1,this\.codexLinuxAvatarCompositorHintsApplying=!1,this\.compositionHost\.setOverlayWindow\(t\)/);
-  assert.match(patched, /this\.dragState=new h2\(i==null\?`renderer`:`native`,c,l,a\.screen\.getDisplayNearestPoint\(s\)\.bounds\),process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)/);
-  assert.match(patched, /this\.dragState=null,this\.reclampWindowToVisibleDisplay\(\{shouldPersist:!0\}\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
-  assert.match(patched, /traySize:process\.platform===`linux`&&typeof this\.codexLinuxIsI3Session==`function`&&this\.codexLinuxIsI3Session\(\)\?this\.traySize:this\.traySize\?\?\(this\.layoutMode===`native`\?k2:O2\)/);
-  assert.match(patched, /this\.setWindowBounds\(e,o\.windowBounds,n,r\),this\.sendLayoutToRenderer\(e,i\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
-  assert.match(patched, /e\.moveTop\(\),e\.showInactive\(\),process\.platform===`linux`&&this\.codexLinuxApplyAvatarCompositorHints\(e\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\),!t&&this\.isOpen\(\)&&\(this\.finishPendingPresentation\(\),this\.broadcastOpenState\(\)\)\}showWindowIfReady/);
-  assert.match(patched, /this\.cancelMomentum\(\),this\.clearMovedWindowPersist\(\),this\.window=null/);
+  assert.match(patched, /codexLinuxIsI3Session\(\)/);
+  assert.match(patched, /setComputerUseCursorLocation\(e\)\{this\.computerUseCursorLocation=e/);
+  assert.match(patched, /sendComputerUseCursorLocationToRenderer\(e\)\{this\.windowManager\.sendMessageToWebContents/);
+  assert.match(patched, /this\.windowServerDragActive=!1[\s\S]*?process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)\}setElementSize/);
+  assert.match(patched, /this\.applyLatestElementSizes\(o\),process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)/);
+  assert.match(patched, /this\.compositionHost\.updateMascotRect\(a\.mascot\)[\s\S]*?process\.platform===`linux`&&this\.applyPointerInteractivityPolicy\(\)\}showWindow/);
+  assert.match(patched, /if\(this\.window!==e\)return;let t=this\.presentationVisibility!=null;this\.codexLinuxStopAvatarPassthroughRecovery\(\)/);
+  assert.match(patched, /traySize:process\.platform===`linux`&&typeof this\.codexLinuxIsI3Session==`function`/);
 });
 
 test("scopes avatar overlay method matching away from unrelated earlier classes", () => {
@@ -2398,7 +3548,7 @@ test("scopes avatar overlay method matching away from unrelated earlier classes"
   const { value: patched, warnings } = captureWarns(() =>
     applyPatchTwice(
       applyLinuxAvatarOverlayMousePassthroughPatch,
-      `${unrelatedClass}${currentAvatarOverlayBundleFixture()}`,
+      `${unrelatedClass}${latestAvatarOverlayBundleFixture()}`,
     ),
   );
 
@@ -2409,16 +3559,16 @@ test("scopes avatar overlay method matching away from unrelated earlier classes"
   );
   assert.match(
     patched,
-    /this\.dragState=new h2\(i==null\?`renderer`:`native`,c,l,a\.screen\.getDisplayNearestPoint\(s\)\.bounds\),process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)/,
+    /this\.windowServerDragActive\|\|\(this\.windowServerDragWindowX=null\),process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)/,
   );
 });
 
 test("bounds avatar overlay method matching to the overlay class body", () => {
   const unrelatedClass =
     "var Other=class{startDrag(e,t){this.dragState={fake:!0}}endDrag(e,t){this.dragState=null,this.reclampWindowToVisibleDisplay({shouldPersist:!0})}setElementSize(e,{mascot:t,tray:n}){this.applyLayout(e)}applyLayout(e){this.setWindowBounds(e,o.windowBounds),this.sendLayoutToRenderer(e)}showWindow(e){e.moveTop(),e.showInactive(),this.broadcastOpenState()}};";
-  const source = currentAvatarOverlayBundleFixture().replace(
-    "var h2=class",
-    `${unrelatedClass}var h2=class`,
+  const source = latestAvatarOverlayBundleFixture().replace(
+    "var fV=class",
+    `${unrelatedClass}var fV=class`,
   );
 
   const { value: patched, warnings } = captureWarns(() =>
@@ -2432,14 +3582,15 @@ test("bounds avatar overlay method matching to the overlay class body", () => {
   assert.equal(patched.includes(unrelatedClass), true);
   assert.match(
     patched,
-    /this\.dragState=new h2\(i==null\?`renderer`:`native`,c,l,a\.screen\.getDisplayNearestPoint\(s\)\.bounds\),process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)/,
+    /this\.windowServerDragActive\|\|\(this\.windowServerDragWindowX=null\),process\.platform===`linux`&&\(this\.pointerInteractive=!0,this\.applyPointerInteractivityPolicy\(\)\)/,
   );
 });
 
 test("adds Linux window icon handling when an icon asset is available", () => {
   const iconAsset = "app-test.png";
   const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
-  const windowOptionsSource = "...process.platform===`win32`?{autoHideMenuBar:!0}:{},";
+  const windowOptionsSource =
+    "...process.platform===`win32`||process.platform===`linux`?{autoHideMenuBar:!0}:{},";
   const readyToShowSource = "D.once(`ready-to-show`,()=>{})";
 
   const patchedWindowOptions = applyPatchTwice(
@@ -2455,7 +3606,7 @@ test("adds Linux window icon handling when an icon asset is available", () => {
       windowOptionsSource,
       "process.platform===`win32`&&k.removeMenu(),",
       readyToShowSource,
-      alreadyOpaqueBackgroundBundle,
+      currentOpaqueWindowSurfaceBackgroundBundle,
       fileManagerBundle,
       trayBundleFixture(),
       singleInstanceBundleFixture(),
@@ -2492,24 +3643,140 @@ test("omits undefined BrowserWindow options in the current window manager bundle
   const iconAsset = "app-test.png";
   const source = [
     "let M=new a.BrowserWindow({width:b,height:x,...S===void 0||C===void 0?{}:{x:S,y:C},",
-    "title:n??a.app.getName(),backgroundColor:A,show:l,parent:p,focusable:m,",
-    "...process.platform===`win32`?{autoHideMenuBar:!0}:process.platform===`linux`?{icon:process.resourcesPath+`/../content/webview/assets/app-test.png`}:{},",
+    "title:n??a.app.getName(),backgroundColor:A,show:l,parent:p,...m===void 0?{}:{focusable:m},",
+    "...process.platform===`win32`||process.platform===`linux`?{autoHideMenuBar:!0}:{},",
     "backgroundMaterial:j??void 0,...D,minWidth:T?.width,minHeight:T?.height,webPreferences:k});",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxWindowOptionsPatch, source, iconAsset);
 
-  assert.match(patched, /show:l,\.\.\.p==null\?\{\}:\{parent:p\},\.\.\.m==null\?\{\}:\{focusable:m\}/);
+  assert.match(patched, /show:l,\.\.\.p===void 0\?\{\}:\{parent:p\},\.\.\.m===void 0\?\{\}:\{focusable:m\}/);
   assert.match(patched, /\.\.\.j==null\?\{\}:\{backgroundMaterial:j\},\.\.\.D,\.\.\.T==null\?\{\}:\{minWidth:T\.width,minHeight:T\.height\},webPreferences:k/);
-  assert.doesNotMatch(patched, /show:l,parent:p,focusable:m/);
+  assert.doesNotMatch(patched, /show:l,parent:p,\.\.\.m===void 0/);
   assert.doesNotMatch(patched, /backgroundMaterial:j\?\?void 0/);
   assert.doesNotMatch(patched, /minWidth:T\?\.width/);
+});
+
+test("keeps the latest primary BrowserWindow focusable without an icon asset", () => {
+  const source = [
+    "async createWindow(e={}){let{appearance:c=`primary`,show:l=!0,parent:p,focusable:m}=e,",
+    "M=new a.BrowserWindow({width:b,height:x,title:n??a.app.getName(),backgroundColor:A,",
+    "show:l,parent:p,...m===void 0?{}:{focusable:m},",
+    "...process.platform===`win32`||process.platform===`linux`?{autoHideMenuBar:!0}:{},",
+    "backgroundMaterial:j??void 0,...D,minWidth:T?.width,minHeight:T?.height,webPreferences:k});}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxWindowOptionsPatch, source, null);
+
+  assert.match(
+    patched,
+    /\.\.\.process\.platform===`linux`&&c===`primary`\?\{focusable:!0\}:m===void 0\?\{\}:\{focusable:m\}/,
+  );
+  assert.match(
+    patched,
+    /\.\.\.process\.platform===`win32`\|\|process\.platform===`linux`\?\{autoHideMenuBar:!0\}:\{\}/,
+  );
+  assert.match(patched, /\.\.\.p===void 0\?\{\}:\{parent:p\}/);
+  assert.match(patched, /\.\.\.j==null\?\{\}:\{backgroundMaterial:j\}/);
+  assert.match(patched, /\.\.\.T==null\?\{\}:\{minWidth:T\.width,minHeight:T\.height\}/);
+});
+
+test("forces Linux primary BrowserWindow to be focusable", () => {
+  const iconAsset = "app-test.png";
+  const source = [
+    "async createWindow(e={}){let{title:n,width:i=1280,height:o=820,appearance:c=`primary`,",
+    "show:l=!0,parent:p,focusable:m}=e,D={},M=new a.BrowserWindow({width:b,height:x,",
+    "...S===void 0||C===void 0?{}:{x:S,y:C},title:n??a.app.getName(),backgroundColor:A,",
+    "show:l,parent:p,...m===void 0?{}:{focusable:m},",
+    "...process.platform===`win32`||process.platform===`linux`?{autoHideMenuBar:!0}:{},",
+    "backgroundMaterial:j??void 0,...D,minWidth:T?.width,minHeight:T?.height,webPreferences:k});}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxWindowOptionsPatch, source, iconAsset);
+
+  assert.match(
+    patched,
+    /show:l,\.\.\.p===void 0\?\{\}:\{parent:p\},\.\.\.process\.platform===`linux`&&c===`primary`\?\{focusable:!0\}:m===void 0\?\{\}:\{focusable:m\}/,
+  );
+  assert.match(patched, /\.\.\.j==null\?\{\}:\{backgroundMaterial:j\},\.\.\.D/);
+  assert.doesNotMatch(patched, /show:l,parent:p,\.\.\.m===void 0/);
+});
+
+test("preserves nullish BrowserWindow option semantics", () => {
+  const source = [
+    "function makeOptions(j,T){let l=!0,p,m,D={},k={};return{show:l,parent:p,...m===void 0?{}:{focusable:m},",
+    "...process.platform===`win32`||process.platform===`linux`?{autoHideMenuBar:!0}:{},",
+    "backgroundMaterial:j??void 0,...D,minWidth:T?.width,minHeight:T?.height,webPreferences:k}}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxWindowOptionsPatch, source, "app-test.png");
+  const makeOptions = new Function(
+    "process",
+    `${patched};return makeOptions`,
+  )({ platform: "linux", resourcesPath: "/tmp/resources" });
+  const options = makeOptions(null, null);
+
+  assert.match(patched, /\.\.\.j==null\?\{\}:\{backgroundMaterial:j\}/);
+  assert.match(
+    patched,
+    /\.\.\.T==null\?\{\}:\{minWidth:T\.width,minHeight:T\.height\}/,
+  );
+  assert.doesNotMatch(patched, /\.\.\.T===void 0/);
+  assert.equal("backgroundMaterial" in options, false);
+  assert.equal("minWidth" in options, false);
+  assert.equal("minHeight" in options, false);
+});
+
+test("ignores unrelated BrowserWindow focusable candidates while patching the primary window", () => {
+  const source = [
+    "new a.BrowserWindow({acceptFirstMouse:!0,focusable:!1,webPreferences:u});",
+    "async createWindow(e={}){let{title:n,appearance:c=`primary`,focusable:m}=e,",
+    "M=new a.BrowserWindow({width:b,height:x,title:n??a.app.getName(),...m===void 0?{}:{focusable:m},",
+    "...process.platform===`win32`?{autoHideMenuBar:!0}:process.platform===`linux`?{icon:process.resourcesPath+`/../content/webview/assets/app-test.png`}:{},webPreferences:k});}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxWindowOptionsPatch, source, "app-test.png");
+
+  assert.match(patched, /acceptFirstMouse:!0,focusable:!1,webPreferences:u/);
+  assert.match(
+    patched,
+    /\.\.\.process\.platform===`linux`&&c===`primary`\?\{focusable:!0\}:m===void 0\?\{\}:\{focusable:m\}/,
+  );
+});
+
+test("keeps current focusable destructuring valid while patching the BrowserWindow spread", () => {
+  const source = [
+    "async createWindow(e={}){let{title:n,width:i=1280,height:o=820,appearance:c=`primary`,",
+    "focusable:m}=e,M=new a.BrowserWindow({width:b,height:x,...m===void 0?{}:{focusable:m},",
+    "...process.platform===`win32`?{autoHideMenuBar:!0}:process.platform===`linux`?{icon:process.resourcesPath+`/../content/webview/assets/app-test.png`}:{},webPreferences:k});}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxWindowOptionsPatch, source, "app-test.png");
+
+  assert.match(patched, /appearance:c=`primary`,focusable:m\}=e/);
+  assert.match(
+    patched,
+    /new a\.BrowserWindow\(\{width:b,height:x,\.\.\.process\.platform===`linux`&&c===`primary`\?\{focusable:!0\}:m===void 0\?\{\}:\{focusable:m\},/,
+  );
+});
+
+test("fails loudly when primary BrowserWindow focusable shape cannot be patched", () => {
+  const source = [
+    "async createWindow(e={}){let{appearance:c=`primary`}=e,",
+    "M=new a.BrowserWindow({width:b,height:x,focusable:getFocusable(),webPreferences:k});}",
+  ].join("");
+
+  assert.throws(
+    () => applyLinuxWindowOptionsPatch(source, null),
+    /Could not patch primary BrowserWindow focusable option for Linux/,
+  );
 });
 
 test("patches remaining Linux window icon snippets when another window is already patched", () => {
   const iconAsset = "app-test.png";
   const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
-  const windowOptionsSource = "...process.platform===`win32`?{autoHideMenuBar:!0}:{},";
+  const windowOptionsSource =
+    "...process.platform===`win32`||process.platform===`linux`?{autoHideMenuBar:!0}:{},";
   const patchedWindowOptionsNeedle =
     `...process.platform===\`win32\`?{autoHideMenuBar:!0}:process.platform===\`linux\`?{icon:${iconPathExpression}}:{},`;
   const readyToShowSource = "D.once(`ready-to-show`,()=>{})";
@@ -2569,7 +3836,11 @@ test("adds Linux tray support including the platform guard", () => {
   const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
   const packagedTrayIconPathExpression = "process.resourcesPath+`/../.codex-linux/codex-desktop-tray.png`";
   const packagedAppIconPathExpression = "process.resourcesPath+`/../.codex-linux/codex-desktop.png`";
-  const patched = applyPatchTwice(applyLinuxTrayPatch, trayBundleFixture(), iconPathExpression);
+  const patched = applyPatchTwice(
+    applyLinuxTrayPatch,
+    `${mainBundlePrefix}${trayBundleFixture()}`,
+    iconPathExpression,
+  );
 
   assert.match(
     patched,
@@ -2594,7 +3865,11 @@ test("adds Linux tray support including the platform guard", () => {
   assert.match(patched, /setLinuxTrayContextMenu\(\)\{let e=n\.Menu\.buildFromTemplate/);
   assert.match(
     patched,
-    /process\.platform===`linux`&&this\.setLinuxTrayContextMenu\(\),this\.tray\.on\(`click`/,
+    /process\.platform===`linux`&&\(codexLinuxSetTrayController\(this\),this\.setLinuxTrayContextMenu\(\)\),this\.tray\.on\(`click`/,
+  );
+  assert.match(
+    patched,
+    /codexLinuxTrayRecoveryHandler=\(\)=>\{let e=codexLinuxTrayController;e\?\.setLinuxTrayContextMenu\?\.\(\)\}/,
   );
   assert.match(
     patched,
@@ -2612,12 +3887,118 @@ test("adds Linux tray support including the platform guard", () => {
   assert.doesNotMatch(patched, /process\.platform===`linux`&&codexLinuxIsTrayEnabled\(\)/);
 });
 
+test("refreshes only the live Linux tray controller after session recovery", () => {
+  const source = `${mainBundlePrefix}${trayBundleFixture()
+    .replace(
+      "this.tray={on(){},setContextMenu(){},popUpContextMenu(){}}",
+      "this.tray=globalThis.createTray()",
+    )
+    .replace("}}v&&", "}};v&&")
+    .replace(";E&&oe();", ";")}`;
+  const patched = applyPatchTwice(applyLinuxTrayPatch, source, null);
+  const powerMonitor = new EventEmitter();
+  const app = new EventEmitter();
+  const trays = [];
+  const context = {
+    E: false,
+    v: false,
+    e: { o: (value) => value },
+    process: { platform: "linux", resourcesPath: "", execPath: "" },
+    require: (name) => {
+      if (name !== "electron") {
+        return {};
+      }
+      return {
+        app,
+        powerMonitor,
+        Menu: { buildFromTemplate: () => ({}) },
+      };
+    },
+    createTray: () => {
+      const tray = {
+        destroyed: false,
+        menuSetCount: 0,
+        on() {},
+        setContextMenu() {
+          if (this.destroyed) {
+            throw new Error("destroyed tray");
+          }
+          this.menuSetCount += 1;
+        },
+        popUpContextMenu() {},
+        destroy() {
+          this.destroyed = true;
+        },
+      };
+      trays.push(tray);
+      return tray;
+    },
+  };
+
+  vm.runInNewContext(`${patched};globalThis.TrayController=pb;`, context);
+  assert.equal(powerMonitor.listenerCount("unlock-screen"), 0);
+  assert.equal(powerMonitor.listenerCount("resume"), 0);
+  const firstController = new context.TrayController();
+  assert.equal(powerMonitor.listenerCount("unlock-screen"), 1);
+  assert.equal(powerMonitor.listenerCount("resume"), 1);
+  const firstTray = trays[0];
+  firstTray.destroy();
+  const liveController = new context.TrayController();
+  const liveTray = trays[1];
+
+  assert.doesNotThrow(() => {
+    powerMonitor.emit("unlock-screen");
+    powerMonitor.emit("resume");
+  });
+  assert.equal(firstTray.menuSetCount, 1);
+  assert.equal(liveTray.menuSetCount, 3);
+
+  app.emit("before-quit");
+  powerMonitor.emit("unlock-screen");
+  assert.equal(liveTray.menuSetCount, 4);
+  assert.equal(powerMonitor.listenerCount("unlock-screen"), 1);
+  assert.equal(powerMonitor.listenerCount("resume"), 1);
+
+  app.emit("will-quit");
+  powerMonitor.emit("unlock-screen");
+  assert.equal(liveTray.menuSetCount, 4);
+  assert.equal(powerMonitor.listenerCount("unlock-screen"), 0);
+  assert.equal(powerMonitor.listenerCount("resume"), 0);
+  assert.ok(firstController);
+  assert.ok(liveController);
+});
+
+test("keeps Linux tray setup fail-soft when recovery helper insertion drifts", () => {
+  const source = `${mainBundlePrefix}${trayBundleFixture().replace(
+    "var pb=class{nativeTrayClickSuppressionReason=",
+    "var pb=class extends globalThis.TrayBase{nativeTrayClickSuppressionReason=",
+  )}`;
+
+  const { value: patched, warnings } = captureWarns(() =>
+    applyPatchTwice(applyLinuxTrayPatch, source, null),
+  );
+
+  assert.ok(
+    warnings.includes(
+      "WARN: Could not find tray controller class — skipping Linux tray power-monitor refresh patch",
+    ),
+  );
+  assert.match(patched, /setLinuxTrayContextMenu\(\)\{/);
+  assert.match(
+    patched,
+    /process\.platform===`linux`&&this\.setLinuxTrayContextMenu\(\),this\.tray\.on\(`click`/,
+  );
+  assert.doesNotMatch(patched, /codexLinuxSetTrayController\(this\)/);
+  assert.doesNotMatch(patched, /codexLinuxTrayRecoveryHandler=/);
+});
+
 test("uses collision-proof Linux tray icon variables when Electron alias is r", () => {
   const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
   const source = [
     "let r=require(`electron`),i=require(`node:path`);",
-    "async function Hw(e){return process.platform!==`win32`&&process.platform!==`darwin`?null:(zw=!0,Lw??Rw??(Rw=(async()=>{let t=await Ww(e.buildFlavor,e.repoRoot),i=new r.Tray(t.defaultIcon);return i})()))}",
-    "async function Ww(e,t){if(process.platform===`darwin`){return null}let n=process.platform===`win32`?`.ico`:`.png`,a=Nw(e,process.platform),o=[...r.app.isPackaged?[(0,i.join)(process.resourcesPath,`${a}${n}`)]:[],(0,i.join)(t,`electron`,`src`,`icons`,`${a}${n}`)];for(let e of o){let t=r.nativeImage.createFromPath(e);if(!t.isEmpty())return{defaultIcon:t,chronicleRunningIcon:null}}return{defaultIcon:await r.app.getFileIcon(process.execPath,{size:process.platform===`win32`?`small`:`normal`}),chronicleRunningIcon:null}}",
+    "async function Hw(e){return process.platform!==`win32`&&process.platform!==`darwin`?null:(zw=!0,Lw??Rw??(Rw=(async()=>{let t=await Ww(e.appBrand,e.buildFlavor,e.repoRoot),i=new r.Tray(t.defaultIcon);return i})()))}",
+    "async function Ww(e,t,n){if(process.platform===`darwin`){return null}let o=K9(e,t,n);return o==null?{defaultIcon:await r.app.getFileIcon(process.execPath,{size:`small`}),chronicleRunningIcon:null}:{defaultIcon:o,chronicleRunningIcon:null}}",
+    "function K9(e,t,n){let a=[(0,i.join)(n,`electron`,`src`,`icons`,`tray.png`)];for(let e of a){let t=r.nativeImage.createFromPath(e);if(!t.isEmpty())return t}return null}",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxTrayPatch, source, iconPathExpression);
@@ -2631,10 +4012,7 @@ test("uses collision-proof Linux tray icon variables when Electron alias is r", 
 
 test("adds Linux tray icon fallback when current upstream uses small file icon fallback", () => {
   const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
-  const source = trayBundleFixture().replace(
-    "n.app.getFileIcon(process.execPath,{size:process.platform===`win32`?`small`:`normal`})",
-    "n.app.getFileIcon(process.execPath,{size:`small`})",
-  );
+  const source = `${mainBundlePrefix}${trayBundleFixture()}`;
 
   const { value: patched, warnings } = captureWarns(() =>
     applyPatchTwice(applyLinuxTrayPatch, source, iconPathExpression),
@@ -2642,6 +4020,7 @@ test("adds Linux tray icon fallback when current upstream uses small file icon f
 
   assert.deepEqual(warnings, []);
   assert.match(patched, /__codexLinuxTrayIcon=n\.nativeImage\.createFromPath/);
+  assert.match(patched, /let r=K9\(e,t,i\);if\(r!=null\)return\{defaultIcon:r,chronicleRunningIcon:null\};if\(process\.platform===`linux`\)/);
   assert.match(patched, /n\.app\.getFileIcon\(process\.execPath,\{size:`small`\}\)/);
 });
 
@@ -2649,6 +4028,7 @@ test("adds Linux tray support even when About dialog already uses the bundled ic
   const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
   const packagedTrayIconPathExpression = "process.resourcesPath+`/../.codex-linux/codex-desktop-tray.png`";
   const source = [
+    mainBundlePrefix,
     trayBundleFixture(),
     "async function bZ(){let t=process.execPath;return process.platform===`linux`?Promise.resolve((()=>{let __codexLinuxAboutIcon=n.nativeImage.createFromPath(process.resourcesPath+`/../content/webview/assets/app-test.png`);return __codexLinuxAboutIcon.isEmpty()?null:__codexLinuxAboutIcon})()):n.app.getFileIcon(t,{size:process.platform===`win32`?`large`:`normal`}).catch(()=>null)}",
   ].join("");
@@ -2741,54 +4121,96 @@ test("adds Linux build information to the app Help menu", () => {
   );
 });
 
-test("makes About dialog prefer the bundled Linux icon asset", () => {
-  const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
-  const source = [
-    "let a=require(`electron`),r={T:()=>null,V:()=>({formatMessage:({defaultMessage:e})=>e})},t={dt:()=>null,Kr:()=>null};",
-    "var $X=`codex.aboutDialog.title`,eZ=`About {appName}`,tZ=`codex.aboutDialog.ok`,nZ=`codex.aboutDialog.versionLine`,rZ=`Version {version}`,iZ=`codex.aboutDialog.versionLineWithDate`,aZ=`Version {version} • Released {releaseDate}`,oZ=`codex.aboutDialog.buildInfoLabel`,sZ=`Build information`,cZ=380,lZ=360,uZ=72,pZ=null;",
-    "async function bZ(){let e=process.platform===`darwin`,t=e?r.T():process.execPath,[n,i]=await Promise.all([e?Fw(t):null,a.app.getFileIcon(t,{size:process.platform===`win32`?`large`:`normal`})]);return{htmlIconDataUrl:n??(i.isEmpty()?null:i.resize({width:uZ,height:uZ,quality:`best`}).toDataURL()),windowIcon:i}}",
-    "let d={windowIcon:null},q={...d.windowIcon.isEmpty()?{}:{icon:d.windowIcon}};",
+function currentAboutDialogBundleFixture() {
+  return [
+    "let c=require(`electron`),a={s:()=>null};",
+    "var q6=`codex.aboutDialog.title`,i8=72;",
+    "async function h8(e){let t=process.platform===`darwin`,n=process.platform===`win32`,r=process.execPath;t?r=a.s():n&&(r=`icon`);let[i,o]=await Promise.all([t?GD(r):null,n?c.nativeImage.createFromPath(r):c.app.getFileIcon(r,{size:`normal`})]);return{htmlIconDataUrl:i??(o.isEmpty()?null:o.resize({width:i8,height:i8,quality:`best`}).toDataURL()),windowIcon:o}}",
+    "let p={windowIcon:null},S={...p.windowIcon.isEmpty()?{}:{icon:p.windowIcon}};",
   ].join("");
+}
 
-  const patched = applyPatchTwice(applyLinuxAboutDialogPatch, source, iconPathExpression);
+test("makes the current About dialog prefer the bundled Linux icon asset", () => {
+  const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
+  const patched = applyPatchTwice(
+    applyLinuxAboutDialogPatch,
+    currentAboutDialogBundleFixture(),
+    iconPathExpression,
+  );
 
   assert.match(
     patched,
     new RegExp(`nativeImage\\.createFromPath\\(${escapeRegExp(iconPathExpression)}\\)`),
   );
-  assert.match(patched, /process\.platform===`linux`\?null:e\?Fw\(t\):null/);
-  assert.match(patched, /windowIcon==null\|\|d\.windowIcon\.isEmpty\(\)\?\{\}:\{icon:d\.windowIcon\}/);
-  assert.match(patched, /i==null\|\|i\.isEmpty\(\)\?null:i\.resize\(/);
-  assert.match(patched, /windowIcon:i\?\?null/);
+  assert.match(patched, /process\.platform===`linux`\?null:t\?GD\(r\):null/);
+  assert.match(patched, /:n\?c\.nativeImage\.createFromPath\(r\):c\.app\.getFileIcon/);
+  assert.match(patched, /p\.windowIcon==null\|\|p\.windowIcon\.isEmpty\(\)\?\{\}:\{icon:p\.windowIcon\}/);
+  assert.match(patched, /o==null\|\|o\.isEmpty\(\)\?null:o\.resize\(/);
+  assert.match(patched, /windowIcon:o\?\?null/);
+  assert.match(patched, /let p=\{windowIcon:null\}/);
+  assert.doesNotMatch(patched, /null\?\?null/);
   assert.doesNotThrow(() => new Function(patched));
 });
 
-test("upgrades partially patched About dialog icon fallbacks after alias drift", () => {
-  const iconPathExpression = "process.resourcesPath+`/../content/webview/assets/app-test.png`";
-  const source = [
-    "let r=require(`electron`),n={T:()=>null};",
-    "var UZ=`codex.aboutDialog.title`,eQ=72;",
-    "async function dQ(){let e=process.platform===`darwin`,t=e?n.T():process.execPath,[i,a]=await Promise.all([",
-    "process.platform===`linux`?null:e?tT(t):null,",
-    "process.platform===`linux`?Promise.resolve((()=>{let __codexLinuxAboutIcon=r.nativeImage.createFromPath(process.resourcesPath+`/../content/webview/assets/app-test.png`);return __codexLinuxAboutIcon.isEmpty()?null:__codexLinuxAboutIcon})()):r.app.getFileIcon(t,{size:process.platform===`win32`?`large`:`normal`}).catch(()=>null)",
-    "]);return{htmlIconDataUrl:i??(a.isEmpty()?null:a.resize({width:eQ,height:eQ,quality:`best`}).toDataURL()),windowIcon:a}}",
-    "let f={windowIcon:null},x={...f.windowIcon.isEmpty()?{}:{icon:f.windowIcon}};",
-  ].join("");
+test("keeps the current no-icon About dialog patch idempotent", () => {
   const { value: patched, warnings } = captureWarns(() =>
-    applyPatchTwice(applyLinuxAboutDialogPatch, source, iconPathExpression),
+    applyPatchTwice(
+      applyLinuxAboutDialogPatch,
+      currentAboutDialogBundleFixture(),
+      null,
+    ),
   );
 
   assert.deepEqual(warnings, []);
-  assert.match(patched, /a==null\|\|a\.isEmpty\(\)\?null:a\.resize\(/);
-  assert.match(patched, /windowIcon:a\?\?null/);
-  assert.match(patched, /f\.windowIcon==null\|\|f\.windowIcon\.isEmpty\(\)\?\{\}:\{icon:f\.windowIcon\}/);
+  assert.match(
+    patched,
+    /:c\.app\.getFileIcon\(r,\{size:`normal`\}\)\.catch\(\(\)=>null\)\]/,
+  );
+  assert.match(patched, /o==null\|\|o\.isEmpty\(\)\?null:o\.resize\(/);
+  assert.equal((patched.match(/o==null\|\|/g) ?? []).length, 1);
+  assert.match(patched, /windowIcon:o\?\?null/);
+  assert.match(patched, /p\.windowIcon==null\|\|p\.windowIcon\.isEmpty\(\)\?\{\}:\{icon:p\.windowIcon\}/);
+  assert.match(patched, /let p=\{windowIcon:null\}/);
+  assert.doesNotMatch(patched, /null\?\?null/);
+  assert.doesNotThrow(() => new Function(patched));
+});
+
+test("rejects the obsolete pre-26.623 About dialog shape", () => {
+  const source = [
+    "let a=require(`electron`);",
+    "var $X=`codex.aboutDialog.title`,uZ=72;",
+    "async function bZ(){let e=process.platform===`darwin`,t=e?`icon`:process.execPath,[n,i]=await Promise.all([e?Fw(t):null,a.app.getFileIcon(t,{size:process.platform===`win32`?`large`:`normal`})]);return{htmlIconDataUrl:n??(i.isEmpty()?null:i.resize({width:uZ,height:uZ,quality:`best`}).toDataURL()),windowIcon:i}}",
+    "let d={windowIcon:null},q={...d.windowIcon.isEmpty()?{}:{icon:d.windowIcon}};",
+  ].join("");
+  const { value: patched, warnings } = captureWarns(() =>
+    applyLinuxAboutDialogPatch(source, null),
+  );
+
+  assert.equal(patched, source);
+  assert.deepEqual(warnings, ["WARN: Could not patch About dialog icon fallback for Linux"]);
+});
+
+test("does not partially patch current About shapes with mismatched result aliases", () => {
+  const malformedSources = [
+    currentAboutDialogBundleFixture().replace("windowIcon:o}", "windowIcon:z}"),
+    currentAboutDialogBundleFixture().replace("{icon:p.windowIcon}", "{icon:q.windowIcon}"),
+  ];
+
+  for (const source of malformedSources) {
+    const { value: patched, warnings } = captureWarns(() =>
+      applyLinuxAboutDialogPatch(source, null),
+    );
+    assert.equal(patched, source);
+    assert.deepEqual(warnings, ["WARN: Could not patch About dialog icon fallback for Linux"]);
+  }
 });
 
 test("adds Linux tray support for current minified window and startup identifiers", () => {
   const source = [
-    "v&&j.on(`close`,e=>{this.persistPrimaryWindowBounds(j,f);let t=this.getPrimaryWindows(f).some(e=>e!==j);if(process.platform===`win32`&&!this.isAppQuitting&&this.options.canHideLastLocalWindowToTray?.()===!0&&!t){e.preventDefault(),j.hide();return}});",
-    "async function eN(e){let t=await Ww(e.buildFlavor,e.repoRoot),r=new n.Tray(t.defaultIcon);return r}",
-    "let ce$=async()=>{O=!0;try{await eN({buildFlavor:a,repoRoot:j.repoRoot})}catch(e){O=!1}};E&&ce$();",
+    mainBundlePrefix,
+    "v&&j.on(`close`,e=>{this.persistPrimaryWindowBounds(j);let t=this.getPrimaryWindows().some(e=>e!==j);if(process.platform===`win32`&&!this.isAppQuitting&&this.options.canHideLastWindowToTray?.()===!0&&!t){e.preventDefault(),j.hide();return}});",
+    "async function eN(e){let t=await Ww(e.buildFlavor,e.appBrand,e.repoRoot),r=new n.Tray(t.defaultIcon);return r}",
+    "let ce$=async()=>{O=!0;try{await eN({appBrand:a.U(),buildFlavor:b,repoRoot:j.repoRoot})}catch(e){O=!1}};E&&ce$();",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxTrayPatch, source, null);
@@ -2811,6 +4233,7 @@ test("adds Linux tray support for current minified window and startup identifier
 
 test("adds Linux tray startup support for current appBrand initializer", () => {
   const source = [
+    "let a=require(`electron`);",
     "async function H5(e){let t=await W5(e.appBrand,e.repoRoot),n=new a.Tray(t.defaultIcon);return n}",
     "let ye=async()=>{O=!0;try{await H5({appBrand:r.et(),repoRoot:j.repoRoot})}catch(e){O=!1,_.reportNonFatal(e instanceof Error?e:`Failed to set up tray`,{kind:`tray-setup-failed`,tags:{errorType:`tray-setup-failed`}}),ee()}};E&&ye();",
   ].join("");
@@ -2832,10 +4255,11 @@ test("adds Linux tray startup support for current appBrand initializer", () => {
 
 test("scopes dynamic tray startup matching to the tray initializer", () => {
   const source = [
+    mainBundlePrefix,
     "async function aa(e){return e.buildFlavor}",
     "let startOther=async()=>{A=!0;try{await aa({buildFlavor:a})}catch(e){A=!1}};U&&startOther();",
-    "async function eN(e){let t=await Ww(e.buildFlavor,e.repoRoot),r=new n.Tray(t.defaultIcon);return r}",
-    "let ce$=async()=>{O=!0;try{await eN({buildFlavor:a,repoRoot:j.repoRoot})}catch(e){O=!1}};E&&ce$();",
+    "async function eN(e){let t=await Ww(e.buildFlavor,e.appBrand,e.repoRoot),r=new n.Tray(t.defaultIcon);return r}",
+    "let ce$=async()=>{O=!0;try{await eN({appBrand:a.U(),buildFlavor:b,repoRoot:j.repoRoot})}catch(e){O=!1}};E&&ce$();",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxTrayPatch, source, null);
@@ -2856,28 +4280,11 @@ test("scopes dynamic tray startup matching to the tray initializer", () => {
   );
 });
 
-test("migrates Linux tray startup patch to tolerate missing settings helper", () => {
-  const source = [
-    "async function eN(e){let t=await Ww(e.buildFlavor,e.repoRoot),r=new n.Tray(t.defaultIcon);return r}",
-    "let ce$=async()=>{O=!0;try{await eN({buildFlavor:a,repoRoot:j.repoRoot})}catch(e){O=!1}};(E||process.platform===`linux`&&codexLinuxIsTrayEnabled())&&ce$();",
-  ].join("");
-
-  const patched = applyPatchTwice(applyLinuxTrayPatch, source, null);
-
-  assert.match(
-    patched,
-    /\(E\|\|process\.platform===`linux`&&\(typeof codexLinuxIsTrayEnabled!==`function`\|\|codexLinuxIsTrayEnabled\(\)\)\)&&ce\$\(\);/,
-  );
-  assert.match(
-    patched,
-    /catch\(e\)\{O=!1;process\.platform===`linux`&&console\.warn\(`\[codex-linux\] Failed to set up system tray`,e\)\}/,
-  );
-});
-
 test("logs Linux tray setup failures when the catch body contains nested objects", () => {
   const source = [
-    "async function s4(e){let t=await l4(e.buildFlavor,e.repoRoot),n=new a.Tray(t.defaultIcon);return n}",
-    "let _e=async()=>{k=!0;try{await s4({buildFlavor:o,repoRoot:M.repoRoot})}catch(e){k=!1,v.reportNonFatal(e instanceof Error?e:`Failed to set up tray`,{kind:`tray-setup-failed`,tags:{errorType:`tray-setup-failed`}}),N.ensureWindow()}};D&&_e();",
+    "let a=require(`electron`);",
+    "async function s4(e){let t=await l4(e.buildFlavor,e.appBrand,e.repoRoot),n=new a.Tray(t.defaultIcon);return n}",
+    "let _e=async()=>{k=!0;try{await s4({appBrand:r.U(),buildFlavor:o,repoRoot:M.repoRoot})}catch(e){k=!1,v.reportNonFatal(e instanceof Error?e:`Failed to set up tray`,{kind:`tray-setup-failed`,tags:{errorType:`tray-setup-failed`}}),N.ensureWindow()}};D&&_e();",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxTrayPatch, source, null);
@@ -2894,15 +4301,16 @@ test("logs Linux tray setup failures when the catch body contains nested objects
 
 test("scopes close-to-tray already-patched detection to the handler", () => {
   const source = [
+    mainBundlePrefix,
     "let unrelated=(process.platform===`win32`||process.platform===`linux`)&&x===`local`;",
-    "v&&j.on(`close`,e=>{this.persistPrimaryWindowBounds(j,f);let t=this.getPrimaryWindows(f).some(e=>e!==j);if(process.platform===`win32`&&!this.isAppQuitting&&this.options.canHideLastLocalWindowToTray?.()===!0&&!t){e.preventDefault(),j.hide();return}});",
+    "v&&j.on(`close`,e=>{this.persistPrimaryWindowBounds(j);let t=this.getPrimaryWindows().some(e=>e!==j);if(process.platform===`win32`&&!this.isAppQuitting&&this.options.canHideLastWindowToTray?.()===!0&&!t){e.preventDefault(),j.hide();return}});",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxTrayPatch, source, null);
 
   assert.match(
     patched,
-    /if\(\(process\.platform===`win32`\|\|process\.platform===`linux`\)&&!this\.isAppQuitting&&!\(typeof codexLinuxIsQuitInProgress===`function`&&codexLinuxIsQuitInProgress\(\)\)&&this\.options\.canHideLastLocalWindowToTray\?\.\(\)===!0&&!t\)\{e\.preventDefault\(\),j\.hide\(\);return\}/,
+    /if\(\(process\.platform===`win32`\|\|process\.platform===`linux`\)&&!this\.isAppQuitting&&!\(typeof codexLinuxIsQuitInProgress===`function`&&codexLinuxIsQuitInProgress\(\)\)&&this\.options\.canHideLastWindowToTray\?\.\(\)===!0&&!t\)\{e\.preventDefault\(\),j\.hide\(\);return\}/,
   );
 });
 
@@ -3376,51 +4784,7 @@ test("skips the launch-action patch without throwing when upstream startup archi
   assert.doesNotThrow(() => applyLinuxLaunchActionArgsPatch(source));
 });
 
-test("gates current close-to-tray setting through the captured global state", () => {
-  const source = "let j=KD({moduleDir:__dirname});let M=FM({buildFlavor:a,globalState:j.globalState,canHideLastLocalWindowToTray:()=>O,disposables:k});t.Mr().info(`Launching app`);";
-  const patched = applyPatchTwice(applyLinuxTrayCloseSettingPatch, source);
-
-  assert.match(
-    patched,
-    /canHideLastLocalWindowToTray:\(\)=>O&&\(process\.platform!==`linux`\|\|j\.globalState\.get\(`codex-linux-system-tray-enabled`\)!==!1\),disposables:k/,
-  );
-  assert.doesNotMatch(patched, /M\.globalState\.get/);
-});
-
-test("does not treat unrelated Linux setting references as close-to-tray patched", () => {
-  const source = [
-    "let j=KD({moduleDir:__dirname});",
-    "let M=FM({buildFlavor:a,globalState:j.globalState,canHideLastLocalWindowToTray:()=>O,disposables:k});",
-    "let codexLinuxGetSetting=e=>process.platform!==`linux`||j.globalState.get(`codex-linux-system-tray-enabled`)!==!1;",
-    "t.Mr().info(`Launching app`);",
-  ].join("");
-
-  const patched = applyPatchTwice(applyLinuxTrayCloseSettingPatch, source);
-
-  assert.match(
-    patched,
-    /canHideLastLocalWindowToTray:\(\)=>O&&\(process\.platform!==`linux`\|\|j\.globalState\.get\(`codex-linux-system-tray-enabled`\)!==!1\),disposables:k/,
-  );
-});
-
-test("chooses the nearest globalState alias for close-to-tray settings", () => {
-  const source = [
-    "let stale={globalState:{get(){return false}}};",
-    "let j=KD({moduleDir:__dirname});",
-    "let M=FM({buildFlavor:a,globalState:j.globalState,canHideLastLocalWindowToTray:()=>O,disposables:k});",
-    "t.Mr().info(`Launching app`);",
-  ].join("");
-
-  const patched = applyPatchTwice(applyLinuxTrayCloseSettingPatch, source);
-
-  assert.match(
-    patched,
-    /canHideLastLocalWindowToTray:\(\)=>O&&\(process\.platform!==`linux`\|\|j\.globalState\.get\(`codex-linux-system-tray-enabled`\)!==!1\),disposables:k/,
-  );
-  assert.doesNotMatch(patched, /stale\.globalState\.get\(`codex-linux-system-tray-enabled`\)/);
-});
-
-test("allows bundled Computer Use on Linux as well as macOS", () => {
+test("registers bundled Computer Use on Linux while preserving the macOS rollout", () => {
   const patched = applyPatchTwice(
     applyLinuxComputerUsePluginGatePatch,
     computerUseGateBundleFixture(),
@@ -3428,9 +4792,9 @@ test("allows bundled Computer Use on Linux as well as macOS", () => {
 
   assert.match(
     patched,
-    /\{installWhenMissing:!0,name:tn,isEnabled:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/,
+    /\{installWhenMissing:!0,name:tn,isEnabled:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse/,
   );
-  assert.doesNotMatch(patched, /t===`darwin`&&e\.computerUse/);
+  assert.doesNotMatch(patched, /=>t===`darwin`&&e\.computerUse/);
 });
 
 test("returns Linux native desktop apps from the Computer Use backend", async () => {
@@ -3657,34 +5021,6 @@ test("inserts native desktop app icon handler before a final native apps handler
   assert.deepEqual(JSON.parse(JSON.stringify(linuxIcon)), { iconSmall: "" });
 });
 
-test("adds Keybinds settings route after upstream minified variable drift", () => {
-  const patched = applyPatchTwice(applyKeybindsSettingsIndexPatch, keybindsIndexBundleFixture());
-
-  assert.match(
-    patched,
-    /var i_e=\{keybinds:\(0,Z\.lazy\)\(\(\)=>s\(\(\)=>import\(`\.\/keybinds-settings-linux\.js`\)/,
-  );
-  assert.match(patched, /var Kge=\{keybinds:xh,"general-settings":xh,/);
-  assert.match(patched, /qge=\[`general-settings`,`keybinds`,`appearance`/);
-  assert.match(patched, /slugs:\[`general-settings`,`keybinds`,`appearance`/);
-  assert.match(patched, /case`keybinds`:return l===`electron`/);
-  assert.match(patched, /case`keybinds`:k=!1;break bb0;/);
-  assert.match(patched, /codexLinuxKeybindOverridesRuntime/);
-});
-
-test("adds Keybinds settings route with current lazy and preload aliases", () => {
-  const patched = applyPatchTwice(
-    applyKeybindsSettingsIndexPatch,
-    keybindsIndexBundleWithLazyAliasDriftFixture(),
-  );
-
-  assert.match(
-    patched,
-    /var i_e=\{keybinds:\(0,R\.lazy\)\(\(\)=>q\(\(\)=>import\(`\.\/keybinds-settings-linux\.js`\)/,
-  );
-  assert.doesNotMatch(patched, /keybinds:\(0,Z\.lazy\)\(\(\)=>s\(/);
-});
-
 test("adds Linux desktop settings route when upstream owns Keyboard Shortcuts", () => {
   const patched = applyPatchTwice(
     applyLinuxDesktopSettingsIndexPatch,
@@ -3693,24 +5029,633 @@ test("adds Linux desktop settings route when upstream owns Keyboard Shortcuts", 
 
   assert.match(
     patched,
-    /var i_e=\{"linux-desktop":\(0,Z\.lazy\)\(\(\)=>s\(\(\)=>import\(`\.\/linux-desktop-settings-linux\.js`\)/,
+    /var i_e=\{"linux-desktop":Z\(async\(\)=>\(await s\(async\(\)=>\{let\{LinuxDesktopSettings:e\}=await import\(`\.\/linux-desktop-settings-linux\.js`\)/,
   );
   assert.match(patched, /var Kge=\{"linux-desktop":xh,"general-settings":xh,/);
   assert.match(patched, /qge=\[`general-settings`,`linux-desktop`,`appearance`/);
   assert.match(patched, /slugs:\[`general-settings`,`linux-desktop`,`appearance`/);
   assert.match(patched, /case`linux-desktop`:return l===`electron`/);
   assert.match(patched, /case`linux-desktop`:k=!1;break bb0;/);
-  assert.doesNotMatch(patched, /codexLinuxKeybindOverridesRuntime/);
 });
 
-test("keeps Linux desktop toggles visible with native Keyboard Shortcuts", () => {
-  const { extractedDir, assetsDir } = createNativeKeyboardShortcutsSettingsFixture();
+test("adds physical-key fallback for current native shortcut runtime", () => {
+  const source = [
+    "function Ie({altKey:e,code:t,key:n}){return!e||t==null?n:Be?.[t]??Re(t)??n}",
+    "function Re(e){return/^Key[A-Z]$/.test(e)?e.slice(3).toLowerCase():/^Digit[0-9]$/.test(e)?e.slice(5):ze.get(e)??null}",
+    "var ze=new Map([[`BracketLeft`,`[`],[`Slash`,`/`]]),Be=null;",
+  ].join("");
+  const patched = applyPatchTwice(applyLinuxShortcutPhysicalKeyFallbackPatch, source);
+
+  const sandbox = {};
+  vm.runInNewContext(
+    `${patched};this.press=(event)=>Ie(event);`,
+    sandbox,
+  );
+
+  assert.equal(sandbox.press({ ctrlKey: true, code: "KeyK", key: "л", altKey: false, metaKey: false }), "k");
+  assert.equal(sandbox.press({ ctrlKey: true, code: "Digit5", key: "(", altKey: false, metaKey: false }), "5");
+  assert.equal(sandbox.press({ ctrlKey: true, code: "BracketLeft", key: "х", altKey: false, metaKey: false }), "[");
+  assert.equal(sandbox.press({ ctrlKey: false, code: "KeyK", key: "л", altKey: false, metaKey: false }), "л");
+  assert.equal(
+    sandbox.press({
+      ctrlKey: true,
+      altKey: true,
+      code: "KeyQ",
+      key: "@",
+      metaKey: false,
+      getModifierState: (name) => name === "AltGraph",
+    }),
+    "@",
+  );
+});
+
+test("patches physical-key fallback through native Keyboard Shortcuts asset scan", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  const shortcutRuntimeAsset = path.join(assetsDir, "app-initial~app-main~keyboard-shortcuts-runtime-A.js");
   try {
-    const result = patchKeybindsSettingsAssets(extractedDir);
+    fs.writeFileSync(
+      shortcutRuntimeAsset,
+      [
+        "function Ie({altKey:e,code:t,key:n}){return!e||t==null?n:Be?.[t]??Re(t)??n}",
+        "function Re(e){return/^Key[A-Z]$/.test(e)?e.slice(3).toLowerCase():/^Digit[0-9]$/.test(e)?e.slice(5):ze.get(e)??null}",
+        "var ze=new Map([[`BracketLeft`,`[`],[`Slash`,`/`]]),Be=null;",
+      ].join(""),
+      "utf8",
+    );
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
 
     assert.equal(result.matched, true);
-    assert.ok(result.changed >= 4);
+    assert.deepEqual(warnings, []);
+
+    const patchedSource = fs.readFileSync(shortcutRuntimeAsset, "utf8");
+    assert.match(patchedSource, /codexLinuxShortcutPhysicalKeyFallbackEvent/);
+
+    const sandbox = {};
+    vm.runInNewContext(
+      `${patchedSource};this.press=(event)=>Ie(event);`,
+      sandbox,
+    );
+    assert.equal(sandbox.press({ metaKey: true, code: "KeyB", key: "и", altKey: false, ctrlKey: false }), "b");
+    assert.equal(sandbox.press({ shiftKey: true, code: "KeyB", key: "И", altKey: false, ctrlKey: false, metaKey: false }), "И");
+
+    const secondResult = patchKeybindsSettingsAssets(extractedDir);
+    assert.equal(secondResult.matched, true);
+    assert.equal(secondResult.changed, 0);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+function runLinuxKeybindRuntimeEvent(eventInit) {
+  const dispatched = [];
+  const listeners = {};
+  const Element = class {
+    closest() {
+      return null;
+    }
+  };
+  const target = new Element();
+  const event = {
+    altKey: false,
+    code: "",
+    ctrlKey: false,
+    defaultPrevented: false,
+    key: "",
+    metaKey: false,
+    repeat: false,
+    shiftKey: false,
+    target,
+    preventDefault() {
+      this.defaultPrevented = true;
+    },
+    stopPropagation() {
+      this.stopped = true;
+    },
+    ...eventInit,
+  };
+  const patched = applyPatchTwice(
+    applyLinuxKeybindOverridesRuntimePatch,
+    "var Ct={openCommandMenu:`CmdOrCtrl+K`,settings:`CmdOrCtrl+,`,copySessionId:`CmdOrCtrl+Alt+C`};",
+  );
+
+  vm.runInNewContext(patched, {
+    Element,
+    navigator: { platform: "Linux x86_64" },
+    localStorage: {
+      getItem() {
+        return "{}";
+      },
+    },
+    window: {
+      addEventListener(type, listener) {
+        listeners[type] = listener;
+      },
+    },
+    E: {
+      dispatchHostMessage(message) {
+        dispatched.push(message);
+        return true;
+      },
+      dispatchMessage(type, params) {
+        dispatched.push({ type, params });
+        return true;
+      },
+    },
+  });
+
+  listeners.keydown(event);
+  return { dispatched, event };
+}
+
+test("Linux keybind runtime falls back to physical Latin key codes for defaults", () => {
+  const { dispatched, event } = runLinuxKeybindRuntimeEvent({
+    code: "KeyK",
+    ctrlKey: true,
+    key: "л",
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(dispatched)), [{ type: "command-menu", query: "" }]);
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(event.stopped, true);
+});
+
+test("Linux keybind runtime leaves logical default shortcuts to upstream", () => {
+  const { dispatched, event } = runLinuxKeybindRuntimeEvent({
+    code: "KeyK",
+    ctrlKey: true,
+    key: "k",
+  });
+
+  assert.deepEqual(dispatched, []);
+  assert.equal(event.defaultPrevented, false);
+});
+
+test("Linux keybind runtime maps physical punctuation codes for defaults", () => {
+  const { dispatched, event } = runLinuxKeybindRuntimeEvent({
+    code: "Comma",
+    ctrlKey: true,
+    key: "б",
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(dispatched)), [
+    { type: "show-settings", params: { section: "general-settings" } },
+  ]);
+  assert.equal(event.defaultPrevented, true);
+});
+
+test("Linux keybind runtime leaves AltGraph chords to text input", () => {
+  const { dispatched, event } = runLinuxKeybindRuntimeEvent({
+    altKey: true,
+    code: "KeyC",
+    ctrlKey: true,
+    getModifierState: (name) => name === "AltGraph",
+    key: "©",
+  });
+
+  assert.deepEqual(dispatched, []);
+  assert.equal(event.defaultPrevented, false);
+});
+
+test("finds a unique current Codex request API asset outside legacy vscode-api chunks", () => {
+  const extractedDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-request-api-"));
+  const assetsDir = path.join(extractedDir, "webview", "assets");
+  try {
+    fs.mkdirSync(assetsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(assetsDir, "app-initial~settings-page-A.js"),
+      'function requestCodex(...args){let[request]=args,{params:params,select:select,signal:signal,source:source}=request??{};return rawCodex("method",params,select,signal,source)}async function rawCodex(method,params,select,signal,source){return transport.post(`vscode://codex/${method}`,params,source,signal)}export{requestCodex as R};',
+      "utf8",
+    );
+
+    assert.deepEqual(findCodexRequestWebviewAsset(assetsDir), {
+      assetName: "app-initial~settings-page-A.js",
+      exportName: "R",
+    });
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("fails loudly when current Codex request API asset detection is ambiguous", () => {
+  const extractedDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-request-api-ambiguous-"));
+  const assetsDir = path.join(extractedDir, "webview", "assets");
+  const requestSource =
+    'function requestCodex(...args){let[request]=args,{params:params,select:select,signal:signal,source:source}=request??{};return rawCodex("method",params,select,signal,source)}async function rawCodex(method,params,select,signal,source){return transport.post(`vscode://codex/${method}`,params,source,signal)}export{requestCodex as R};';
+  try {
+    fs.mkdirSync(assetsDir, { recursive: true });
+    fs.writeFileSync(path.join(assetsDir, "app-a.js"), requestSource, "utf8");
+    fs.writeFileSync(path.join(assetsDir, "app-b.js"), requestSource, "utf8");
+
+    assert.throws(
+      () => findCodexRequestWebviewAsset(assetsDir),
+      /Found multiple Codex request API assets \(app-a\.js, app-b\.js\)/,
+    );
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("renders the generated Linux desktop settings page with working switches", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    const result = patchKeybindsSettingsAssets(extractedDir);
+    assert.equal(result.matched, true);
+
+    class Component {
+      constructor(props) {
+        this.props = props;
+        this.state = {};
+      }
+
+      setState(next) {
+        const update = typeof next === "function" ? next(this.state, this.props) : next;
+        this.state = { ...this.state, ...update };
+      }
+    }
+
+    const jsxRuntime = {
+      jsx: (type, props = {}) => ({ type, props }),
+      jsxs: (type, props = {}) => ({ type, props }),
+    };
+    const React = { Component, Fragment: "fragment" };
+    const routeSettingsSource = fs.readFileSync(
+      path.join(assetsDir, "settings-page-A.js"),
+      "utf8",
+    );
+    assert.match(
+      routeSettingsSource,
+      /RouteReact as codexLinuxReact,RouteJsx as codexLinuxJsx/,
+    );
+    assert.doesNotMatch(
+      routeSettingsSource,
+      /DecoyReact as codexLinuxReact|DecoyJsx as codexLinuxJsx/,
+    );
+    const nativeRuntime = { React, $: jsxRuntime };
+    assert.equal(nativeRuntime.React, React);
+    assert.equal(nativeRuntime.$, jsxRuntime);
+    const Toggle = evaluateGeneratedSettingsModule(
+      fs.readFileSync(path.join(assetsDir, "linux-settings-toggle-linux.js"), "utf8"),
+      { $: nativeRuntime.$ },
+      "t",
+    );
+    const SettingsPage = ({ title, subtitle, children }) =>
+      jsxRuntime.jsxs("main", { children: [title, subtitle, children] });
+    const SettingsRow = ({ label, description, control }) =>
+      jsxRuntime.jsxs("div", { children: [label, description, control] });
+    const SettingsSection = ({ children }) => jsxRuntime.jsx("section", { children });
+    SettingsSection.Header = ({ title }) => jsxRuntime.jsx("h3", { children: title });
+    SettingsSection.Content = ({ children }) => jsxRuntime.jsx("div", { children });
+    const SettingsGroup = ({ children }) => jsxRuntime.jsx("div", { children });
+    const LinuxDesktopSettings = evaluateGeneratedSettingsModule(
+      fs.readFileSync(path.join(assetsDir, linuxDesktopSettingsAsset), "utf8"),
+      {
+        $: nativeRuntime.$,
+        React: nativeRuntime.React,
+        SettingsGroup,
+        SettingsPage,
+        SettingsRow,
+        SettingsSection,
+        Toggle,
+        __post: () => Promise.resolve({}),
+      },
+      "LinuxDesktopSettings",
+    );
+
+    const rendered = renderGeneratedSettingsTree(LinuxDesktopSettings({}), Component);
+    const text = rendered.filter((value) => typeof value === "string");
+    assert.ok(text.includes("Linux desktop"));
+    assert.ok(text.includes("Compact prompt window"));
+    assert.ok(text.includes("System tray"));
+    assert.ok(text.includes("Warm start"));
+    assert.ok(text.includes("Install updates when you close ChatGPT"));
+
+    const switches = rendered.filter(
+      (value) => typeof value === "object" && value.type === "button" && value.props.role === "switch",
+    );
+    assert.equal(switches.length, 4);
+    assert.deepEqual(
+      switches.map((element) => element.props["aria-label"]),
+      [
+        "Compact prompt window",
+        "System tray",
+        "Warm start",
+        "Install updates when you close ChatGPT",
+      ],
+    );
+
+    let changedTo = null;
+    const interactiveSwitch = Toggle({
+      checked: false,
+      disabled: false,
+      onChange: (value) => {
+        changedTo = value;
+      },
+      ariaLabel: "Test setting",
+    });
+    interactiveSwitch.props.onClick();
+    assert.equal(changedTo, true);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("skips old Keybinds settings generation when native Keyboard Shortcuts are missing", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    fs.rmSync(path.join(assetsDir, "keyboard-shortcuts-settings-A.js"));
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, false);
+    assert.match(result.reason, /current upstream Keyboard Shortcuts settings route is missing/);
+    assert.ok(warnings.some((warning) => warning.includes("current upstream Keyboard Shortcuts settings route is missing")));
+    assert.equal(fs.existsSync(path.join(assetsDir, keybindsSettingsAsset)), false);
+    assert.equal(fs.existsSync(path.join(assetsDir, linuxDesktopSettingsAsset)), false);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("skips Linux settings without writing assets when the active route runtime cannot be inferred", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    const nativeSettingsPath = path.join(assetsDir, "settings-page-A.js");
+    const nativeSettingsSource = fs.readFileSync(nativeSettingsPath, "utf8").replace(
+      "(0,RouteReact.useState)(null)",
+      "RouteReact.useState(null)",
+    );
+    fs.writeFileSync(nativeSettingsPath, nativeSettingsSource, "utf8");
+    const assetsBefore = new Map(
+      fs.readdirSync(assetsDir).map((name) => [
+        name,
+        fs.readFileSync(path.join(assetsDir, name), "utf8"),
+      ]),
+    );
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, false);
+    assert.equal(result.changed, 0);
+    assert.match(result.reason, /could not infer the active React runtime/);
+    assert.ok(warnings.some((warning) => warning.includes("could not infer the active React runtime")));
+    assert.deepEqual(
+      new Map(
+        fs.readdirSync(assetsDir).map((name) => [
+          name,
+          fs.readFileSync(path.join(assetsDir, name), "utf8"),
+        ]),
+      ),
+      assetsBefore,
+    );
+    assert.equal(fs.existsSync(path.join(assetsDir, linuxDesktopSettingsAsset)), false);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-toggle-linux.js")), false);
+
+    const report = createPatchReport();
+    captureWarns(() => patchExtractedApp(extractedDir, { report }));
+    const reportEntry = report.patches.find((patch) => patch.name === "keybinds-settings");
+    assert.equal(reportEntry.status, "skipped-optional");
+    assert.equal(reportEntry.ciPolicy, "optional");
+    assert.match(reportEntry.reason, /could not infer the active React runtime/);
+    assert.ok(
+      optionalDriftFromReport(report).some((drift) => drift.name === "keybinds-settings"),
+    );
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("writes only missing Linux settings fallback components after required checks pass", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    fs.rmSync(path.join(assetsDir, "settings-row-A.js"));
+    fs.rmSync(path.join(assetsDir, "settings-content-layout-A.js"));
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-row-linux.js")), true);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-page-linux.js")), true);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-section-linux.js")), false);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-group-linux.js")), false);
+    assert.match(
+      fs.readFileSync(path.join(assetsDir, linuxDesktopSettingsAsset), "utf8"),
+      /import\{n as SettingsRow\}from"\.\/linux-settings-row-linux\.js\?v=[a-f0-9]{12}"/,
+    );
+
+    const settingsPageSource = fs.readFileSync(
+      path.join(assetsDir, "linux-settings-page-linux.js"),
+      "utf8",
+    );
+    assert.match(settingsPageSource, /main-surface flex h-full min-h-0 flex-col/);
+    assert.match(settingsPageSource, /draggable flex items-center px-panel electron:h-toolbar extension:h-toolbar-sm/);
+    assert.match(settingsPageSource, /scrollbar-stable flex-1 overflow-y-auto p-panel/);
+    assert.match(settingsPageSource, /mx-auto flex w-full max-w-3xl flex-col/);
+    assert.match(settingsPageSource, /heading-lg[^"\n]*font-normal/);
+    assert.match(settingsPageSource, /gap-10/);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("uses a themed fallback toggle when upstream settings toggle is unavailable", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    fs.rmSync(path.join(assetsDir, "toggle-A.js"));
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-toggle-linux.js")), true);
+
+    const linuxDesktopSource = fs.readFileSync(
+      path.join(assetsDir, linuxDesktopSettingsAsset),
+      "utf8",
+    );
+    assert.match(linuxDesktopSource, /import\{t as Toggle\}from"\.\/linux-settings-toggle-linux\.js\?v=[a-f0-9]{12}"/);
+    assert.match(
+      linuxDesktopSource,
+      /control:\$\.jsx\(Toggle,\{checked:value,disabled:isLoading,onChange:this\.update,ariaLabel:label\}\)/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /function LinuxSwitch/);
+    assert.doesNotMatch(linuxDesktopSource, /bg-token-text-primary/);
+    assert.doesNotMatch(linuxDesktopSource, /translate-x-4/);
+
+    const toggleSource = fs.readFileSync(
+      path.join(assetsDir, "linux-settings-toggle-linux.js"),
+      "utf8",
+    );
+    assert.match(toggleSource, /cursor-interaction/);
+    assert.match(toggleSource, /bg-token-charts-blue/);
+    assert.match(toggleSource, /bg-token-foreground\/10/);
+    assert.match(toggleSource, /h-5 w-8/);
+    assert.match(toggleSource, /h-4 w-4/);
+    assert.match(toggleSource, /data-\[state=checked\]:translate-x-\[14px\]/);
+    assert.doesNotMatch(toggleSource, /--color-token-radio-active-foreground/);
+    assert.doesNotMatch(toggleSource, /style:/);
+
+    const secondResult = patchKeybindsSettingsAssets(extractedDir);
+    assert.equal(secondResult.matched, true);
+    assert.equal(secondResult.changed, 0);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("generated Linux settings controls match the current native settings visual contract", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    for (const asset of [
+      "settings-row-A.js",
+      "settings-content-layout-A.js",
+      "settings-group-A.js",
+      "settings-surface-A.js",
+    ]) {
+      fs.rmSync(path.join(assetsDir, asset));
+    }
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+
+    const rowSource = fs.readFileSync(path.join(assetsDir, "linux-settings-row-linux.js"), "utf8");
+    assert.match(rowSource, /flex items-center justify-between gap-6 px-4 py-3/);
+    assert.match(rowSource, /text-xs leading-4 text-balance text-token-text-secondary/);
+
+    const sectionSource = fs.readFileSync(path.join(assetsDir, "linux-settings-section-linux.js"), "utf8");
+    assert.match(sectionSource, /min-h-toolbar/);
+    assert.match(sectionSource, /pb-1\.5/);
+    assert.match(sectionSource, /flex flex-col gap-1\.5/);
+
+    const groupSource = fs.readFileSync(path.join(assetsDir, "linux-settings-group-linux.js"), "utf8");
+    assert.match(groupSource, /overflow-hidden rounded-2xl border border-token-border/);
+    assert.match(groupSource, /--color-background-panel, var\(--color-token-bg-fog\)/);
+    assert.match(groupSource, /after:bg-token-border/);
+
+    const pageSource = fs.readFileSync(path.join(assetsDir, "linux-settings-page-linux.js"), "utf8");
+    assert.match(pageSource, /draggable flex items-center px-panel electron:h-toolbar extension:h-toolbar-sm/);
+    assert.match(pageSource, /max-w-3xl/);
+    assert.match(pageSource, /heading-lg[^"\n]*font-normal/);
+    assert.match(pageSource, /text-base text-token-text-secondary/);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("ignores settings row and toggle icon decoys from the current DMG", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    fs.rmSync(path.join(assetsDir, "settings-row-A.js"));
+    fs.rmSync(path.join(assetsDir, "toggle-A.js"));
+    fs.writeFileSync(
+      path.join(assetsDir, "settings-row-disclosure-A.js"),
+      "function a(e){let{children:n,content:r,contentId:i,expanded:o}=e;return null}function c(){}export{c as n,a as t};",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(assetsDir, "toggle-left-A.js"),
+      "function createIcon(e,t){return{e,t}}var r=createIcon(`ToggleLeft`,[[`rect`,{width:`20`,height:`12`}]]);function i(){}export{i as n,r as t};",
+      "utf8",
+    );
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-row-linux.js")), true);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-toggle-linux.js")), true);
+
+    const linuxDesktopSource = fs.readFileSync(
+      path.join(assetsDir, linuxDesktopSettingsAsset),
+      "utf8",
+    );
+    assert.match(
+      linuxDesktopSource,
+      /import\{n as SettingsRow\}from"\.\/linux-settings-row-linux\.js\?v=[a-f0-9]{12}"/,
+    );
+    assert.match(
+      linuxDesktopSource,
+      /import\{t as Toggle\}from"\.\/linux-settings-toggle-linux\.js\?v=[a-f0-9]{12}"/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /settings-row-disclosure-A\.js/);
+    assert.doesNotMatch(linuxDesktopSource, /toggle-left-A\.js/);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("does not import an upstream settings toggle with private lazy initialization", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    fs.rmSync(path.join(assetsDir, "toggle-A.js"));
+    fs.writeFileSync(path.join(assetsDir, "shared-toggle-A.js"), "function vn(){}export{vn};", "utf8");
+    fs.writeFileSync(
+      path.join(assetsDir, "general-settings-A.js"),
+      'import{vn as Fe}from"./shared-toggle-A.js";function GeneralSettings(){return (0,Y.jsx)(W,{label:"Default permissions",description:"",control:(0,Y.jsx)(Fe,{checked:!0,disabled:!0,onChange:e=>{save(e)},ariaLabel:"Default permissions"})})}export{GeneralSettings};',
+      "utf8",
+    );
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-toggle-linux.js")), true);
+
+    const linuxDesktopSource = fs.readFileSync(
+      path.join(assetsDir, linuxDesktopSettingsAsset),
+      "utf8",
+    );
+    assert.match(
+      linuxDesktopSource,
+      /import\{t as Toggle\}from"\.\/linux-settings-toggle-linux\.js\?v=[a-f0-9]{12}"/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /shared-toggle-A\.js/);
+    assert.match(
+      linuxDesktopSource,
+      /control:\$\.jsx\(Toggle,\{checked:value,disabled:isLoading,onChange:this\.update,ariaLabel:label\}\)/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /function LinuxSwitch/);
+    assert.doesNotMatch(linuxDesktopSource, /bg-token-text-primary/);
+    assert.doesNotMatch(linuxDesktopSource, /translate-x-4/);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("does not leave generated Linux settings fallbacks when later current-DMG route checks fail", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    fs.rmSync(path.join(assetsDir, "settings-row-A.js"));
+    fs.writeFileSync(
+      path.join(assetsDir, "settings-page-A.js"),
+      "settings.nav.keyboard-shortcuts;var icons={\"general-settings\":wt,\"keyboard-shortcuts\":xn};",
+      "utf8",
+    );
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, false);
+    assert.match(result.reason, /could not find Linux desktop settings route bundle/);
+    assert.ok(warnings.some((warning) => warning.includes("could not find Linux desktop settings route bundle")));
+    assert.equal(fs.existsSync(path.join(assetsDir, linuxDesktopSettingsAsset)), false);
+    assert.equal(fs.existsSync(path.join(assetsDir, "linux-settings-row-linux.js")), false);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("adds Linux desktop settings when native shortcuts use a consolidated settings bundle", () => {
+  const { extractedDir, assetsDir } = createModernNativeKeyboardShortcutsSettingsFixture();
+  try {
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.ok(result.changed >= 2);
     assert.match(result.reason, /upstream keyboard shortcuts settings are present/);
+    assert.deepEqual(warnings, []);
     assert.equal(fs.existsSync(path.join(assetsDir, keybindsSettingsAsset)), false);
     assert.equal(fs.existsSync(path.join(assetsDir, linuxDesktopSettingsAsset)), true);
 
@@ -3719,40 +5664,192 @@ test("keeps Linux desktop toggles visible with native Keyboard Shortcuts", () =>
       "utf8",
     );
     assert.match(linuxDesktopSource, /Linux desktop/);
-    assert.match(linuxDesktopSource, /Compact prompt window/);
-    assert.match(linuxDesktopSource, /System tray/);
-    assert.match(linuxDesktopSource, /Warm start/);
-    assert.match(linuxDesktopSource, /Install updates when you close Codex/);
     assert.match(linuxDesktopSource, /Build information/);
-    assert.match(linuxDesktopSource, /Linux source commit/);
-    assert.match(linuxDesktopSource, /Copy commit/);
-    assert.match(linuxDesktopSource, /Open commit/);
-    assert.match(linuxDesktopSource, /href:url/);
     assert.match(linuxDesktopSource, /codex-linux-get-build-info/);
-    assert.match(linuxDesktopSource, /codex-linux-system-tray-enabled/);
-    assert.match(linuxDesktopSource, /codex-linux-auto-update-on-exit/);
-    assert.match(linuxDesktopSource, /import\{r as SettingsRow\}from"\.\/settings-row-A\.js"/);
-    assert.match(linuxDesktopSource, /import\{z as __post\}from"\.\/setting-storage-A\.js"/);
+    assert.match(linuxDesktopSource, /Open on GitHub/);
+    assert.match(linuxDesktopSource, /href:url/);
+    assert.doesNotMatch(linuxDesktopSource, /Source commit URL/);
+    assert.match(
+      linuxDesktopSource,
+      /import\{codexLinuxReact as React,codexLinuxJsx as \$\}from"\.\/settings-page-A\.js"/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /__reactFactory|__jsxFactory/);
+    const settingsRouteSource = fs.readFileSync(
+      path.join(assetsDir, "settings-page-A.js"),
+      "utf8",
+    );
+    assert.match(
+      settingsRouteSource,
+      /RouteReact as codexLinuxReact,RouteJsx as codexLinuxJsx/,
+    );
+    assert.match(
+      linuxDesktopSource,
+      /import\{t as Toggle\}from"\.\/linux-settings-toggle-linux\.js\?v=[a-f0-9]{12}"/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /function LinuxSwitch/);
 
-    assert.match(
-      fs.readFileSync(path.join(assetsDir, "settings-sections-A.js"), "utf8"),
-      /slug:`linux-desktop`/,
-    );
-    assert.match(
-      fs.readFileSync(path.join(assetsDir, "settings-shared-A.js"), "utf8"),
-      /settings\.nav\.linux-desktop/,
-    );
-    const appMainSource = fs.readFileSync(path.join(assetsDir, "app-main-A.js"), "utf8");
-    assert.match(appMainSource, /linux-desktop-settings-linux\.js/);
-    assert.doesNotMatch(appMainSource, /keybinds-settings-linux\.js/);
     const settingsPageSource = fs.readFileSync(path.join(assetsDir, "settings-page-A.js"), "utf8");
-    assert.match(settingsPageSource, /"linux-desktop":q,"general-settings":q/);
+    const linuxDesktopDigest = crypto
+      .createHash("sha256")
+      .update(linuxDesktopSource)
+      .digest("hex")
+      .slice(0, 12);
+    assert.match(
+      settingsPageSource,
+      new RegExp(`linux-desktop-settings-linux\\.js\\?v=${linuxDesktopDigest}`),
+    );
+    const fallbackToggleSource = fs.readFileSync(
+      path.join(assetsDir, "linux-settings-toggle-linux.js"),
+      "utf8",
+    );
+    const fallbackToggleDigest = crypto
+      .createHash("sha256")
+      .update(fallbackToggleSource)
+      .digest("hex")
+      .slice(0, 12);
+    assert.match(
+      linuxDesktopSource,
+      new RegExp(`linux-settings-toggle-linux\\.js\\?v=${fallbackToggleDigest}`),
+    );
+    assert.match(settingsPageSource, /linux-desktop-settings-linux\.js/);
+    assert.match(settingsPageSource, /"linux-desktop":[A-Za-z_$][\w$]*,"general-settings"/);
+    assert.match(settingsPageSource, /=\[`general-settings`,`linux-desktop`,`profile`/);
     assert.match(settingsPageSource, /slugs:\[`general-settings`,`linux-desktop`,`profile`/);
     assert.match(settingsPageSource, /case`linux-desktop`:case`general-settings`/);
+
+    const splitSharedSource = fs.readFileSync(
+      path.join(
+        assetsDir,
+        "app-initial~app-main~page~remote-conversation-page~new-thread-panel-page~settings-page~shared-A.js",
+      ),
+      "utf8",
+    );
+    assert.match(splitSharedSource, /settings\.nav\.linux-desktop/);
+    assert.match(splitSharedSource, /settings\.section\.linux-desktop/);
+
+    const splitSectionsSource = fs.readFileSync(
+      path.join(
+        assetsDir,
+        "app-initial~app-main~remote-conversation-page~settings-page~hotkey-window-thread-page~mcp-s-A.js",
+      ),
+      "utf8",
+    );
+    assert.match(splitSectionsSource, /general-settings\.linux-desktop\.import\.profile\.keyboard-shortcuts/);
+    assert.match(splitSectionsSource, /\{slug:`linux-desktop`\},\{slug:`import`\}/);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("adds Linux desktop settings when the lazy route map is hoisted into a separate app chunk", () => {
+  const { extractedDir, assetsDir } = createSplitRouteNativeKeyboardShortcutsSettingsFixture();
+  try {
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.ok(result.changed >= 3);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(assetsDir, linuxDesktopSettingsAsset)), true);
+
+    const linuxDesktopSource = fs.readFileSync(
+      path.join(assetsDir, linuxDesktopSettingsAsset),
+      "utf8",
+    );
+    assert.match(
+      linuxDesktopSource,
+      /import\{t as Toggle\}from"\.\/linux-settings-toggle-linux\.js\?v=[a-f0-9]{12}"/,
+    );
+    assert.doesNotMatch(linuxDesktopSource, /function LinuxSwitch/);
+
+    // The icon/navigation bundle must reuse the general-settings icon for the new
+    // entry and must NOT receive the lazy page component as a nav icon (the bug
+    // that rendered a broken floating "Linux desktop" box over the settings page).
+    const settingsPageSource = fs.readFileSync(path.join(assetsDir, "settings-page-A.js"), "utf8");
+    assert.match(settingsPageSource, /"linux-desktop":wt,"general-settings":wt/);
+    assert.doesNotMatch(settingsPageSource, /linux-desktop-settings-linux\.js/);
+    assert.doesNotMatch(settingsPageSource, /codexLinuxDesktopSettings/);
+    assert.match(settingsPageSource, /=\[`general-settings`,`linux-desktop`,`profile`/);
+    assert.match(settingsPageSource, /slugs:\[`general-settings`,`linux-desktop`,`profile`/);
+    assert.match(settingsPageSource, /case`linux-desktop`:case`general-settings`/);
+
+    // The lazy route is registered in the hoisted app chunk, reusing the bundle's
+    // own lazy/preload aliases against the bare (no `var`) map assignment.
+    const routeChunkSource = fs.readFileSync(
+      path.join(assetsDir, "app-initial~app-main~automations-page-A.js"),
+      "utf8",
+    );
+    assert.match(
+      routeChunkSource,
+      /"linux-desktop":Ya\(async\(\)=>\(await Pr\(async\(\)=>\{let\{LinuxDesktopSettings:e\}=await import\(`\.\/linux-desktop-settings-linux\.js\?v=[a-f0-9]{12}`\);return\{LinuxDesktopSettings:e\}\},\[\],import\.meta\.url\)\)\.LinuxDesktopSettings\),"general-settings":/,
+    );
 
     const secondResult = patchKeybindsSettingsAssets(extractedDir);
     assert.equal(secondResult.matched, true);
     assert.equal(secondResult.changed, 0);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("composes Linux desktop section metadata and route patches in the same asset", () => {
+  const routeChunkName = "app-initial~app-main~automations-page-A.js";
+  const { extractedDir, assetsDir } = createSplitRouteNativeKeyboardShortcutsSettingsFixture({
+    routeChunkName,
+  });
+  const routeChunkPath = path.join(assetsDir, routeChunkName);
+  try {
+    fs.writeFileSync(
+      routeChunkPath,
+      [
+        fs.readFileSync(routeChunkPath, "utf8"),
+        "var Bj=`general-settings.import.profile.keyboard-shortcuts.codex-micro.appshots.appearance.pets.agent.git-settings.data-controls.cloud-settings.cloud-environments.code-review.personalization.usage.browser-use.computer-use.local-environments.worktrees.environments.mcp-settings.hooks-settings.connections.plugins-settings.skills-settings`.split(`.`);",
+        "var Uj=[{slug:`general-settings`},{slug:`import`},{slug:`profile`},{slug:`appearance`},{slug:`pets`},{slug:`appshots`},{slug:`git-settings`},{slug:`connections`},{slug:`cloud-settings`},{slug:`cloud-environments`},{slug:`code-review`},{slug:`local-environments`},{slug:`worktrees`},{slug:`agent`},{slug:`personalization`},{slug:`keyboard-shortcuts`},{slug:`usage`},{slug:`browser-use`},{slug:`computer-use`},{slug:`mcp-settings`},{slug:`hooks-settings`},{slug:`plugins-settings`},{slug:`skills-settings`},{slug:`data-controls`}];",
+      ].join(""),
+      "utf8",
+    );
+
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+
+    const routeChunkSource = fs.readFileSync(routeChunkPath, "utf8");
+    assert.match(
+      routeChunkSource,
+      /"linux-desktop":Ya\(async\(\)=>\(await Pr\(async\(\)=>\{let\{LinuxDesktopSettings:e\}=await import\(`\.\/linux-desktop-settings-linux\.js\?v=[a-f0-9]{12}`\);return\{LinuxDesktopSettings:e\}\},\[\],import\.meta\.url\)\)\.LinuxDesktopSettings\),"general-settings":/,
+    );
+    assert.match(routeChunkSource, /Bj=`general-settings\.linux-desktop\.import\.profile\.keyboard-shortcuts/);
+    assert.match(routeChunkSource, /Uj=\[\{slug:`general-settings`\},\{slug:`linux-desktop`\},\{slug:`import`\}/);
+
+    const secondResult = patchKeybindsSettingsAssets(extractedDir);
+    assert.equal(secondResult.matched, true);
+    assert.equal(secondResult.changed, 0);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("finds Linux desktop settings route map in hashed settings-page chunks", () => {
+  const routeChunkName = "app-initial~settings-page-A.js";
+  const { extractedDir, assetsDir } = createSplitRouteNativeKeyboardShortcutsSettingsFixture({
+    routeChunkName,
+  });
+  try {
+    const { value: result, warnings } = captureWarns(() => patchKeybindsSettingsAssets(extractedDir));
+
+    assert.equal(result.matched, true);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(assetsDir, linuxDesktopSettingsAsset)), true);
+
+    const routeChunkSource = fs.readFileSync(path.join(assetsDir, routeChunkName), "utf8");
+    assert.match(
+      routeChunkSource,
+      /"linux-desktop":Ya\(async\(\)=>\(await Pr\(async\(\)=>\{let\{LinuxDesktopSettings:e\}=await import\(`\.\/linux-desktop-settings-linux\.js\?v=[a-f0-9]{12}`\);return\{LinuxDesktopSettings:e\}\},\[\],import\.meta\.url\)\)\.LinuxDesktopSettings\),"general-settings":/,
+    );
+
+    const settingsPageSource = fs.readFileSync(path.join(assetsDir, "settings-page-A.js"), "utf8");
+    assert.match(settingsPageSource, /"linux-desktop":wt,"general-settings":wt/);
+    assert.doesNotMatch(settingsPageSource, /codexLinuxDesktopSettings/);
   } finally {
     fs.rmSync(extractedDir, { recursive: true, force: true });
   }
@@ -3768,6 +5865,32 @@ test("adds Linux desktop section to current native Keyboard Shortcuts sections b
   assert.match(patched, /r=\[\{slug:`general-settings`\},\{slug:`linux-desktop`\},\{slug:`profile`\}/);
 });
 
+test("adds Linux desktop section to split current section metadata bundle", () => {
+  const source = [
+    "var Bj=`general-settings.import.profile.keyboard-shortcuts.codex-micro.appshots.appearance.pets.agent.git-settings.data-controls.cloud-settings.cloud-environments.code-review.personalization.usage.browser-use.computer-use.local-environments.worktrees.environments.mcp-settings.hooks-settings.connections.plugins-settings.skills-settings`.split(`.`);",
+    "var Uj=[{slug:`general-settings`},{slug:`import`},{slug:`profile`},{slug:`appearance`},{slug:`pets`},{slug:`appshots`},{slug:`git-settings`},{slug:`connections`},{slug:`cloud-settings`},{slug:`cloud-environments`},{slug:`code-review`},{slug:`local-environments`},{slug:`worktrees`},{slug:`agent`},{slug:`personalization`},{slug:`keyboard-shortcuts`},{slug:`usage`},{slug:`browser-use`},{slug:`computer-use`},{slug:`mcp-settings`},{slug:`hooks-settings`},{slug:`plugins-settings`},{slug:`skills-settings`},{slug:`data-controls`}];",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxDesktopSettingsSectionsPatch, source);
+
+  assert.match(patched, /Bj=`general-settings\.linux-desktop\.import\.profile\.keyboard-shortcuts/);
+  assert.match(patched, /Uj=\[\{slug:`general-settings`\},\{slug:`linux-desktop`\},\{slug:`import`\}/);
+});
+
+test("adds Linux desktop section to duplicate section metadata shapes in one asset", () => {
+  const source = [
+    "var e=[`general-settings`,`profile`,`keyboard-shortcuts`,`account`],r=[`general-settings`,`import`,`keyboard-shortcuts`,`usage`];",
+    "var Bj=`general-settings.profile.keyboard-shortcuts`.split(`.`),Cj=`general-settings.import.keyboard-shortcuts`.split(`.`);",
+    "var Uj=[{slug:`general-settings`},{slug:`profile`},{slug:`keyboard-shortcuts`}],Vj=[{slug:`general-settings`},{slug:`appearance`},{slug:`keyboard-shortcuts`}];",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxDesktopSettingsSectionsPatch, source);
+
+  assert.equal([...patched.matchAll(/=\[`general-settings`,`linux-desktop`,/g)].length, 2);
+  assert.equal([...patched.matchAll(/`general-settings\.linux-desktop\.[^`]*keyboard-shortcuts[^`]*`\.split\(`\.`\)/g)].length, 2);
+  assert.equal([...patched.matchAll(/=\[\{slug:`general-settings`\},\{slug:`linux-desktop`\},/g)].length, 2);
+});
+
 test("adds the Linux desktop section title when the JSX message component identifier drifts", () => {
   const patched = applyLinuxDesktopSettingsSharedPatch(
     settingsSharedBundleWithDriftingJsxAliasFixture(),
@@ -3781,17 +5904,6 @@ test("adds the Linux desktop section title when the JSX message component identi
   );
   // The original general-settings case is preserved untouched.
   assert.match(patched, /case`general-settings`:\{let e;return o\[5\]===Symbol\.for\(`react\.memo_cache_sentinel`\)/);
-});
-
-test("adds the keybinds section title when the JSX message component identifier drifts", () => {
-  const patched = applyKeybindsSettingsSharedPatch(
-    settingsSharedBundleWithDriftingJsxAliasFixture(),
-  );
-
-  assert.match(
-    patched,
-    /case`keybinds`:\{return \(0,d\.jsx\)\(r,\{id:`settings\.section\.keybinds`,defaultMessage:`Keybinds`,description:`Title for keybinds settings section`\}\)\}/,
-  );
 });
 
 test("keeps local environment action modal inputs editable inside stored modal content", () => {
@@ -3926,15 +6038,15 @@ test("recognizes current settings language row i18n gate as already patched", ()
   assert.deepEqual(warnings, []);
 });
 
-test("shows the profile dropdown settings route on Linux", () => {
+test("keeps automation_update eager in dynamic tools built during thread start", () => {
   const source =
-    "function E(){let Ct=se(`4166894088`),Pt=Ct,Ft=f(De,`settings`),U=Pt&&(0,C.jsx)(S,{LeftIcon:ye,keyboardShortcut:Ft,onClick:()=>{v(`/settings/general-settings`)},children:(0,C.jsx)(g,{id:`codex.profileDropdown.settingsPage`,defaultMessage:`Settings`})});return U}";
+    "async function pUt(){return[{type:`namespace`,name:cX,description:`Tools provided by the Codex app.`,tools:[...h?[_ee()]:[],...[],...i?.open_in_codex===!0?[TBt]:[],...h&&d?[SBt]:[],lu,...h&&y?[Ra]:[],...[],...g?AHt({availableHandoffHosts:e,availableModels:b,crossHostHandoffEnabled:n,forkThreadEnabled:!0}):[],...h&&_?[PBt,FBt]:[],...m===`conversational_onboarding`?[yoe]:[],...v&&m!==`conversational_onboarding`?[...vee,bu]:[]].map(e=>({type:`function`,...e,..._Ut.has(e.name)?{}:{deferLoading:!0}}))}]}async sendRequest(e,t,n){if(e===`config/read`)return this.sendConfigReadRequest(t,n);let{request:r,promise:i}=this.createRequest(e,t,n);return i}";
 
-  const patched = applyPatchTwice(applyLinuxProfileSettingsMenuPatch, source);
+  const patched = applyPatchTwice(applyAutomationUpdateEagerToolPatch, source);
 
-  assert.match(patched, /let Ct=!0,Pt=Ct,Ft=f\(De,`settings`\)/);
-  assert.match(patched, /\/settings\/general-settings/);
-  assert.match(patched, /codex\.profileDropdown\.settingsPage/);
+  assert.match(patched, /e\.name===`automation_update`&&delete t\.deferLoading/);
+  assert.match(patched, /\{deferLoading:!0\}/);
+  assert.doesNotMatch(patched, /codex-linux-automation-dynamic-tools-diagnostics/);
 });
 
 test("removes unsupported features from default app-server feature sync", () => {
@@ -3949,11 +6061,11 @@ test("removes unsupported features from default app-server feature sync", () => 
 
   assert.match(
     patched,
-    /var GF=\[`apps`,`memories`,`mentions_v2`,`plugins`,`remote_control`,`remote_plugin`,`tool_call_mcp_elicitation`,`tool_suggest`\];/,
+    /var GF=\[`apps`,`memories`,`mentions_v2`,`plugins`,`remote_control`,`remote_plugin`,`tool_call_mcp_elicitation`,`tool_search`,`tool_suggest`\];/,
   );
   assert.doesNotMatch(patched, /`auth_elicitation`/);
   assert.doesNotMatch(patched, /`enable_mcp_apps`/);
-  assert.doesNotMatch(patched, /`tool_search`/);
+  assert.match(patched, /`tool_search`/);
   assert.doesNotMatch(patched, /,te\]/);
 });
 
@@ -3961,7 +6073,7 @@ test("patches the matched app-server feature sync array when an identical array 
   const unsupportedFeatureArray =
     "var GF=[`apps`,`auth_elicitation`,`enable_mcp_apps`,`memories`,`plugins`,`tool_call_mcp_elicitation`,`tool_search`,`tool_suggest`,te];";
   const supportedFeatureArray =
-    "var GF=[`apps`,`memories`,`plugins`,`tool_call_mcp_elicitation`,`tool_suggest`];";
+    "var GF=[`apps`,`memories`,`plugins`,`tool_call_mcp_elicitation`,`tool_search`,`tool_suggest`];";
   const source = [
     unsupportedFeatureArray,
     "function OF(){return GF}",
@@ -4005,6 +6117,38 @@ test("sanitizes unsupported features in current dynamic app-server feature sync"
   assert.match(patched, /n\[HV\]=t,n/);
   assert.doesNotMatch(patched, /`apps_mcp_path_override`/);
   assert.doesNotMatch(patched, /`auth_elicitation`/);
+});
+
+test("sanitizes unsupported features in assignment-style dynamic app-server feature sync", () => {
+  const source = [
+    "function iae(e,t){let n={};for(let t of k7){let r=e[t];r!=null&&(n[t]=r)}return n[j7]=t,n}",
+    "var E7,D7,O7,k7,A7,j7,aae=e((()=>{E7=s(),k7=[`apps_mcp_path_override`,`auth_elicitation`,`memories`,`tool_suggest`],A7=`4218407052`,j7=`remote_plugin`}));",
+    "function rae(){let e=(0,E7.c)(7),t=M(J),[n]=Y_(`statsig_default_enable_features`),r=Kd(A7),i=Kh(),a=rt(),o,s;",
+    "return e[0]!==i||e[1]!==r||e[2]!==n||e[3]!==a||e[4]!==t?(o=()=>{let e=new Map,o=()=>{if(vd(`set-default-feature-overrides`,{overrides:n??null}),n==null)return;let i=iae(n,r),o=t.get(Kp),s=new Set(t.get(nm).filter(e=>e===o||pm(t,e).state===`connected`));for(let t of e.keys())s.has(t)||e.delete(t);let c=t.get(nm).filter(e=>s.has(e)).flatMap(t=>(0,D7.default)(e.get(t),i)?[]:(e.set(t,i),[vd(`set-experimental-feature-enablement-for-host`,{hostId:t,enablement:i}).catch(n=>{e.delete(t),l.error(`Failed to sync experimental feature enablement`,{safe:{hostId:t},sensitive:{error:n}})})]));c.length!==0&&Promise.all(c).then(()=>{a.invalidateQueries({queryKey:$te})})};return o(),i.addRegistryCallback(o)},s=[i,r,n,a,t],e[0]=i,e[1]=r,e[2]=n,e[3]=a,e[4]=t,e[5]=o,e[6]=s):(o=e[5],s=e[6]),(0,O7.useEffect)(o,s),null}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxAppServerFeatureEnablementPatch, source);
+
+  assert.match(patched, /k7=\[`memories`,`tool_suggest`\]/);
+  assert.match(patched, /n\[j7\]=t,n/);
+  assert.doesNotMatch(patched, /`apps_mcp_path_override`/);
+  assert.doesNotMatch(patched, /`auth_elicitation`/);
+});
+
+test("does not sanitize assignment-style feature arrays inside longer identifiers", () => {
+  const source = [
+    "var Xk7=[`apps_mcp_path_override`,`auth_elicitation`];",
+    "function iae(e,t){let n={};for(let t of k7){let r=e[t];r!=null&&(n[t]=r)}return n[j7]=t,n}",
+    "var E7,D7,O7,k7,A7,j7,aae=e((()=>{E7=s(),k7=[`apps_mcp_path_override`,`auth_elicitation`,`memories`,`tool_suggest`],A7=`4218407052`,j7=`remote_plugin`}));",
+    "function rae(){let e=(0,E7.c)(7),t=M(J),[n]=Y_(`statsig_default_enable_features`),r=Kd(A7),i=Kh(),a=rt(),o,s;",
+    "return e[0]!==i||e[1]!==r||e[2]!==n||e[3]!==a||e[4]!==t?(o=()=>{let e=new Map,o=()=>{if(vd(`set-default-feature-overrides`,{overrides:n??null}),n==null)return;let i=iae(n,r),o=t.get(Kp),s=new Set(t.get(nm).filter(e=>e===o||pm(t,e).state===`connected`));for(let t of e.keys())s.has(t)||e.delete(t);let c=t.get(nm).filter(e=>s.has(e)).flatMap(t=>(0,D7.default)(e.get(t),i)?[]:(e.set(t,i),[vd(`set-experimental-feature-enablement-for-host`,{hostId:t,enablement:i}).catch(n=>{e.delete(t),l.error(`Failed to sync experimental feature enablement`,{safe:{hostId:t},sensitive:{error:n}})})]));c.length!==0&&Promise.all(c).then(()=>{a.invalidateQueries({queryKey:$te})})};return o(),i.addRegistryCallback(o)},s=[i,r,n,a,t],e[0]=i,e[1]=r,e[2]=n,e[3]=a,e[4]=t,e[5]=o,e[6]=s):(o=e[5],s=e[6]),(0,O7.useEffect)(o,s),null}",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxAppServerFeatureEnablementPatch, source);
+
+  assert.match(patched, /Xk7=\[`apps_mcp_path_override`,`auth_elicitation`\]/);
+  assert.match(patched, /,k7=\[`memories`,`tool_suggest`\]/);
+  assert.match(patched, /n\[j7\]=t,n/);
 });
 
 test("preserves dynamic remote_plugin when the minified feature key contains regex syntax", () => {
@@ -4153,6 +6297,23 @@ test("keeps current app-server backfill helpers visible outside the Sentry handl
   assert.equal(context.turnTimeout, 3e4);
 });
 
+test("keeps remote conversation hydration out of core", () => {
+  const descriptors = corePatchDescriptors();
+
+  for (const removedPatchId of [
+    "linux-app-server-conversation-hydration",
+    "linux-completed-resume-recovery",
+    "linux-unowned-turn-claim",
+    "linux-completed-item-recovery",
+    "linux-remote-terminal-status-recovery",
+  ]) {
+    assert.equal(
+      descriptors.some((patch) => patch.id === removedPatchId),
+      false,
+    );
+  }
+});
+
 test("skips app-server timeout rewrite when the helper insertion anchor drifts", () => {
   const source =
     "class RequestClient{createRequest(e,t,n){let r=P(B()),i=n?.timeoutMs??0,a=Da(t),o=this.requestPromises.size;return{request:{id:r,method:e,params:t},conversationId:a,pending:o,timeoutMs:i}}}";
@@ -4173,6 +6334,7 @@ test("adds Linux package updater behind the existing app updater manager", () =>
   assert.match(patched, /function codexLinuxReadUpdateState\(\)/);
   assert.match(patched, /function codexLinuxUpdateLifecycleState\(e\)/);
   assert.match(patched, /function codexLinuxUpdateManagerPath\(\)/);
+  assert.match(patched, /function codexLinuxUpdateManagerEnv\(\)/);
   assert.match(patched, /async function codexLinuxShowUpdateMessage\(codexLinuxMessage,codexLinuxDetail\)/);
   assert.match(patched, /function codexLinuxInstallAfterQuit\(\)/);
   assert.match(patched, /function codexLinuxQuitForUpdate\(\)/);
@@ -4184,10 +6346,12 @@ test("adds Linux package updater behind the existing app updater manager", () =>
   assert.match(patched, /grep -q "\^status: Installed"/);
   assert.match(patched, /\/usr\/bin\/codex-desktop >\/dev\/null 2>&1 &/);
   assert.match(patched, /detached:!0,stdio:`ignore`/);
+  assert.match(patched, /windowsHide:!0,env:codexLinuxUpdateManagerEnv\(\)/);
   assert.match(patched, /codexLinuxInstallAfterQuit\(\);let t=codexLinuxGetElectronModule\(\);if\(!t\)return;let e=setTimeout/);
   assert.match(patched, /t\.app\?\.quit\?\.\(\)/);
   assert.match(patched, /t\.app\?\.exit\?\.\(0\)/);
   assert.match(patched, /execFile\(codexLinuxUpdateManagerPath\(\),e/);
+  assert.match(patched, /encoding:`utf8`,windowsHide:!0,env:codexLinuxUpdateManagerEnv\(\)/);
   assert.match(patched, /async function codexLinuxProbeUpdateManager\(\)/);
   assert.match(patched, /codexLinuxRunUpdateManager\(\[`--help`\]\)/);
   assert.match(patched, /async function codexLinuxRefreshUpdateState\(\)/);
@@ -4205,6 +6369,41 @@ test("adds Linux package updater behind the existing app updater manager", () =>
   assert.doesNotMatch(patched, /this\.options\.onInstallUpdatesRequested\?\.\(\)/);
   assert.match(patched, /n\.stdout\?\.includes\(`already installed`\)\?await codexLinuxShowUpdateMessage/);
   assert.match(patched, /if\(t\?\.status===`waiting_for_app_exit`\)/);
+});
+
+test("restores host LD_LIBRARY_PATH for Electron updater bridge commands", () => {
+  const patched = applyLinuxAppUpdaterBridgePatch(appUpdaterBundleFixture());
+  const helperSource = patched.match(
+    /function codexLinuxUpdateManagerEnv\(\)\{[\s\S]*?return e\}/,
+  )?.[0];
+  assert.ok(helperSource);
+
+  const runHelper = (env) => {
+    const context = { process: { env: { ...env } } };
+    vm.runInNewContext(`${helperSource};globalThis.result=codexLinuxUpdateManagerEnv()`, context);
+    return context.result;
+  };
+
+  for (const [state, value, expected] of [
+    ["unset", "", undefined],
+    ["empty", "", ""],
+    ["value", "/home/user/lib", "/home/user/lib"],
+  ]) {
+    const result = runHelper({
+      LD_LIBRARY_PATH: "/nix/app:/nix/runtime",
+      CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE: state,
+      CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_VALUE: value,
+    });
+    assert.equal(result.LD_LIBRARY_PATH, expected);
+    assert.equal(Object.hasOwn(result, "CODEX_LINUX_ORIGINAL_LD_LIBRARY_PATH_STATE"), false);
+  }
+
+  const developmentResult = runHelper({
+    LD_LIBRARY_PATH: "/developer/lib",
+    CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE: "unset",
+  });
+  assert.equal(developmentResult.LD_LIBRARY_PATH, "/developer/lib");
+  assert.equal(Object.hasOwn(developmentResult, "CODEX_LINUX_HOST_LD_LIBRARY_PATH_STATE"), false);
 });
 
 test("migrates updater helpers away from captured Electron aliases", () => {
@@ -4484,7 +6683,7 @@ test("patchLinuxAppUpdaterBridge scans build bundles and stays idempotent", () =
   }
 });
 
-test("adds installWhenMissing to an already Linux-enabled Computer Use gate", () => {
+test("upgrades a rollout-gated Linux Computer Use descriptor", () => {
   const source = computerUseGateBundleFixture().replace(
     "{name:tn,isEnabled:({features:e,platform:t})=>t===`darwin`&&e.computerUse,migrate:wn}",
     "{name:tn,isEnabled:({features:e,platform:t})=>(t===`darwin`||t===`linux`)&&e.computerUse,migrate:wn}",
@@ -4493,23 +6692,61 @@ test("adds installWhenMissing to an already Linux-enabled Computer Use gate", ()
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
 
   assert.match(patched, /installWhenMissing:!0,name:tn/);
+  assert.match(patched, /=>t===`linux`\|\|t===`darwin`&&e\.computerUse/);
   assert.equal((patched.match(/installWhenMissing:!0,name:tn/g) || []).length, 1);
 });
 
-test("keeps scanning Computer Use gates after an already patched match", () => {
+test("patches marketplace selector Computer Use gate to keep Linux legacy MCP", () => {
   const source = [
-    "var tn=`computer-use`;",
-    "var $n=[{installWhenMissing:!0,name:tn,isEnabled:({features:e,platform:t})=>(t===`darwin`||t===`linux`)&&e.computerUse,migrate:on},{name:tn,isEnabled:({features:n,platform:r})=>r===`darwin`&&n.computerUse,migrate:wn}];",
+    "function dl(e){if(!(e.platform!==`darwin`||!e.marketplacePluginNames.includes(`computer-use`)))return e.desktopFeatureAvailability.computerUseNodeRepl?`node-repl`:`legacy-mcp`}",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
 
   assert.match(
     patched,
-    /name:tn,isEnabled:\(\{features:n,platform:r\}\)=>\(r===`darwin`\|\|r===`linux`\)&&n\.computerUse,migrate:wn/,
+    /if\(!\(\(\s*e.platform!==`darwin`&&e.platform!==`linux`\)\|\|!e.marketplacePluginNames.includes\(`computer-use`\)\)\)return e.platform===`darwin`&&e.desktopFeatureAvailability.computerUseNodeRepl\?`node-repl`:`legacy-mcp`/,
+  );
+  assert.doesNotMatch(
+    patched,
+    /if\(!\(e.platform!==`darwin`\|\|!e.marketplacePluginNames.includes\(`computer-use`\)\)\)return e.desktopFeatureAvailability.computerUseNodeRepl\?`node-repl`:`legacy-mcp`/,
+  );
+});
+
+test("patches marketplace selector and plugin gate in one pass", () => {
+  const source = [
+    "var tn=`computer-use`;",
+    "function dl(e){if(!(e.platform!==`darwin`||!e.marketplacePluginNames.includes(`computer-use`)))return e.desktopFeatureAvailability.computerUseNodeRepl?`node-repl`:`legacy-mcp`}",
+    "var $n=[{name:tn,isEnabled:({features:n,platform:r})=>r===`darwin`&&n.computerUse,migrate:wn}];",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
+
+  assert.match(
+    patched,
+    /if\(!\(\(\s*e.platform!==`darwin`&&e.platform!==`linux`\)\|\|!e.marketplacePluginNames.includes\(`computer-use`\)\)\)return e.platform===`darwin`&&e.desktopFeatureAvailability.computerUseNodeRepl\?`node-repl`:`legacy-mcp`/,
+  );
+  assert.match(
+    patched,
+    /installWhenMissing:!0,name:tn,isEnabled:\(\{features:n,platform:r\}\)=>r===`linux`\|\|r===`darwin`&&n\.computerUse,migrate:wn/,
+  );
+  assert.doesNotMatch(patched, /=>r===`darwin`&&n\.computerUse/);
+});
+
+test("keeps scanning Computer Use gates after an already patched match", () => {
+  const source = [
+    "var tn=`computer-use`;",
+    "var $n=[{installWhenMissing:!0,name:tn,isEnabled:({features:e,platform:t})=>t===`linux`||t===`darwin`&&e.computerUse,migrate:on},{name:tn,isEnabled:({features:n,platform:r})=>r===`darwin`&&n.computerUse,migrate:wn}];",
+  ].join("");
+
+  const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
+
+  assert.match(
+    patched,
+    /name:tn,isEnabled:\(\{features:n,platform:r\}\)=>r===`linux`\|\|r===`darwin`&&n\.computerUse,migrate:wn/,
   );
   assert.equal((patched.match(/installWhenMissing:!0,name:tn/g) || []).length, 2);
-  assert.doesNotMatch(patched, /r===`darwin`&&n\.computerUse/);
+  assert.doesNotMatch(patched, /=>r===`darwin`&&n\.computerUse/);
 });
 
 test("patches all unpatched Computer Use gates in one pass", () => {
@@ -4521,9 +6758,9 @@ test("patches all unpatched Computer Use gates in one pass", () => {
   const patched = applyLinuxComputerUsePluginGatePatch(source);
 
   assert.equal((patched.match(/installWhenMissing:!0,name:tn/g) || []).length, 2);
-  assert.match(patched, /\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/);
-  assert.match(patched, /\(r===`darwin`\|\|r===`linux`\)&&n\.computerUse/);
-  assert.doesNotMatch(patched, /===`darwin`&&/);
+  assert.match(patched, /t===`linux`\|\|t===`darwin`&&e\.computerUse/);
+  assert.match(patched, /r===`linux`\|\|r===`darwin`&&n\.computerUse/);
+  assert.doesNotMatch(patched, /=>[tr]===`darwin`&&/);
 });
 
 test("handles reordered Computer Use gate destructuring", () => {
@@ -4533,14 +6770,14 @@ test("handles reordered Computer Use gate destructuring", () => {
   ].join("");
   const alreadyLinuxEnabledSource = [
     "var tn=`computer-use`;",
-    "var $n=[{installWhenMissing:!0,name:tn,isEnabled:({platform:t,features:e})=>(t===`darwin`||t===`linux`)&&e.computerUse,migrate:wn}];",
+    "var $n=[{installWhenMissing:!0,name:tn,isEnabled:({features:e,platform:t})=>t===`linux`||t===`darwin`&&e.computerUse,migrate:wn}];",
   ].join("");
 
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, darwinOnlySource);
 
   assert.match(
     patched,
-    /\{installWhenMissing:!0,name:tn,isEnabled:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse,migrate:wn\}/,
+    /\{installWhenMissing:!0,name:tn,isEnabled:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse,migrate:wn\}/,
   );
   assert.equal(applyPatchTwice(applyLinuxComputerUsePluginGatePatch, alreadyLinuxEnabledSource), alreadyLinuxEnabledSource);
 });
@@ -4556,7 +6793,7 @@ test("targets literal Computer Use gate names without patching unrelated descrip
   assert.match(patched, /name:other,isEnabled:\(\{features:e,platform:t\}\)=>t===`darwin`&&e\.computerUse,migrate:on/);
   assert.match(
     patched,
-    /name:`computer-use`,isEnabled:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse,migrate:wn/,
+    /name:`computer-use`,isEnabled:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse,migrate:wn/,
   );
 });
 
@@ -4571,9 +6808,9 @@ test("handles quoted Computer Use gate names", () => {
   const patchedLiteralName = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, literalNameSource);
 
   assert.match(patchedBoundName, /installWhenMissing:!0,name:tn/);
-  assert.match(patchedBoundName, /\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/);
+  assert.match(patchedBoundName, /t===`linux`\|\|t===`darwin`&&e\.computerUse/);
   assert.match(patchedLiteralName, /installWhenMissing:!0,name:'computer-use'/);
-  assert.match(patchedLiteralName, /\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/);
+  assert.match(patchedLiteralName, /t===`linux`\|\|t===`darwin`&&e\.computerUse/);
 });
 
 test("patches the current Computer Use gate without touching the Windows-internal descriptor", () => {
@@ -4584,7 +6821,7 @@ test("patches the current Computer Use gate without touching the Windows-interna
 
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
 
-  assert.match(patched, /name:Ze,isEnabled:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse,migrate:Qn/);
+  assert.match(patched, /name:Ze,isEnabled:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse,migrate:Qn/);
   assert.match(patched, /t\.C\.isInternal\(e\)&&r===`win32`&&n\.computerUse/);
   assert.equal((patched.match(/installWhenMissing:!0,name:Ze/g) || []).length, 2);
 });
@@ -4594,7 +6831,7 @@ test("patches the current isAvailable Computer Use gate shape", () => {
 
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
 
-  assert.match(patched, /name:ft,isAvailable:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse,migrate:vr/);
+  assert.match(patched, /name:ft,isAvailable:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse,migrate:vr/);
   assert.match(patched, /t\.T\.isInternal\(e\)&&r===`win32`&&n\.computerUse/);
   assert.equal((patched.match(/installWhenMissing:!0,name:ft/g) || []).length, 2);
 });
@@ -4608,25 +6845,202 @@ test("patches the Electron 42 Computer Use gate with descriptor metadata fields"
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
 
   assert.match(patched, /autoInstallOptOutKey:t\.No\(t\.Oo\),installWhenMissing:!0,installWhenMissingRequiresOptIn:!0,name:t\.Oo/);
-  assert.match(patched, /isAvailable:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse,migrate:ha/);
+  assert.match(patched, /isAvailable:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse,migrate:ha/);
   assert.match(patched, /isAvailable:\(\{features:e,platform:t\}\)=>t===`win32`&&e\.computerUse/);
 });
 
 test("auto-installs the current Chrome plugin gate shape", () => {
   const patched = applyPatchTwice(
     applyLinuxChromePluginAutoInstallPatch,
-    currentPluginGateBundleFixture(),
+    currentChromePluginGateBundleFixture(),
   );
 
   assert.match(
     patched,
-    /\{forceReload:!0,installWhenMissing:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,features:t\}\)=>process\.platform===`linux`\|\|\(t\.externalBrowserUseAllowed&&\$n\(e\)\)\}/,
+    /\{forceReload:!0,installWhenMissing:!0,name:o\.c,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,features:t\}\)=>process\.platform===`linux`\|\|\(t\.externalBrowserUseAllowed&&n\.Cs\(e\)\)\}/,
   );
-  assert.match(patched, /name:xt,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,env:t,features:n\}\)=>Ar\(e,t\)&&n\.externalBrowserUseAllowed/);
-  assert.match(patched, /name:dt,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,env:t,features:n\}\)=>jr\(e,t\)&&n\.externalBrowserUseAllowed/);
-  assert.equal((patched.match(/installWhenMissing:!0,name:ut/g) || []).length, 1);
-  assert.equal((patched.match(/installWhenMissing:!0,name:dt/g) || []).length, 0);
-  assert.equal((patched.match(/installWhenMissing:!0,name:xt/g) || []).length, 0);
+  assert.match(patched, /name:o\.s,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,env:t,features:r\}\)=>Ar\(e,t\)&&r\.externalBrowserUseAllowed/);
+  assert.equal((patched.match(/installWhenMissing:!0,name:o\.c/g) || []).length, 1);
+  assert.equal((patched.match(/installWhenMissing:!0,name:o\.s/g) || []).length, 0);
+});
+
+test("makes Linux bundled plugin staging writable after copying read-only resources", async () => {
+  const patched = applyPatchTwice(
+    applyLinuxBundledPluginCopyPermissionsPatch,
+    currentBundledPluginCopyBundleFixture(),
+  );
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-bundled-plugin-permissions-"));
+  const sourcePlugin = path.join(root, "source-plugin");
+  const sourceManifestDir = path.join(sourcePlugin, ".codex-plugin");
+  const sourceManifest = path.join(sourceManifestDir, "plugin.json");
+  const externalFile = path.join(root, "external-read-only-file");
+  const sourceLink = path.join(sourcePlugin, "external-link");
+  const targetPlugin = path.join(root, "target-plugin");
+  const targetManifest = path.join(targetPlugin, ".codex-plugin", "plugin.json");
+  const targetLink = path.join(targetPlugin, "external-link");
+
+  try {
+    fs.mkdirSync(sourceManifestDir, { recursive: true });
+    fs.writeFileSync(sourceManifest, '{"name":"computer-use"}\n');
+    fs.writeFileSync(externalFile, "external\n");
+    fs.chmodSync(externalFile, 0o444);
+    fs.symlinkSync(externalFile, sourceLink);
+    fs.chmodSync(sourceManifest, 0o444);
+    fs.chmodSync(sourceManifestDir, 0o555);
+    fs.chmodSync(sourcePlugin, 0o555);
+
+    const copyPlugin = new Function("process", "require", `${patched};return fl;`)(
+      { platform: "linux" },
+      require,
+    );
+    await copyPlugin(sourcePlugin, targetPlugin);
+    fs.appendFileSync(targetManifest, "\n");
+
+    assert.match(patched, /async function codexLinuxMakeBundledPluginTreeWritable/);
+    assert.equal(fs.statSync(targetPlugin).mode & 0o200, 0o200);
+    assert.equal(fs.statSync(targetManifest).mode & 0o200, 0o200);
+    assert.equal(fs.lstatSync(targetLink).isSymbolicLink(), true);
+    assert.equal(fs.statSync(externalFile).mode & 0o200, 0);
+  } finally {
+    fs.chmodSync(sourcePlugin, 0o755);
+    fs.chmodSync(sourceManifestDir, 0o755);
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+function bundledPluginReconcileRaceFixture({
+  capturedHashVar = "c",
+  capturedSnapshotVar = "n",
+  featureStateVar = "p",
+  forceVar = "e",
+  latestHashVar = "h",
+  pendingVar = "v",
+  reasonVar = "t",
+  workerArgVar = "t",
+  workerVar = "j",
+} = {}) {
+  return [
+    `let ${featureStateVar}=null,${pendingVar}=Promise.resolve(),${latestHashVar}=null,calls=[],releasePreflight,preflightCount=0,markPreflightStarted;`,
+    "let preflightStarted=new Promise(e=>{markPreflightStarted=e});",
+    "let L=()=>({info(){}});",
+    "let preflight=()=>++preflightCount===1?(markPreflightStarted(),new Promise(e=>{releasePreflight=e})):Promise.resolve();",
+    "let destructive=async({appServerConnection:e,desktopFeatureAvailability:t})=>{calls.push(t);return {}};",
+    `let E=({force:${forceVar},reason:${reasonVar}})=>{if(${featureStateVar}==null)return L().info(\`bundled_plugins_reconcile_skipped_features_unavailable\`,{safe:{reason:${reasonVar}},sensitive:{}}),${pendingVar};let ${capturedSnapshotVar}=${featureStateVar},${capturedHashVar}=JSON.stringify({externalBrowserUse:${capturedSnapshotVar}.externalBrowserUse,inAppBrowserUse:${capturedSnapshotVar}.inAppBrowserUse});if(!${forceVar}&&${latestHashVar}===${capturedHashVar})return ${pendingVar};${latestHashVar}=${capturedHashVar};return ${pendingVar}=${pendingVar}.catch(()=>{}).then(async()=>{L().info(\`bundled_plugins_reconcile_started\`,{safe:{reason:${reasonVar}},sensitive:{}});await ${workerVar}({desktopFeatureAvailability:${capturedSnapshotVar},reason:${reasonVar}})}),${pendingVar}};`,
+    `let ${workerVar}=async ${workerArgVar}=>{await preflight();let v=async()=>{},y,h=\`shadowed-worker-local\`;try{y=await destructive({appServerConnection:null,desktopFeatureAvailability:${workerArgVar}.desktopFeatureAvailability})}finally{await v()}};`,
+    `function setFeatures(e){${featureStateVar}=e;return E({force:!1,reason:\`startup\`})}`,
+    "function getCalls(){return calls}",
+    "function release(){releasePreflight()}",
+    "function waitForPreflight(){return preflightStarted}",
+  ].join("");
+}
+
+function bundledPluginReconcileRaceApi(source) {
+  const patched = applyPatchTwice(
+    applyLinuxBundledPluginReconcileStaleSnapshotPatch,
+    source,
+  );
+  return {
+    api: new Function(
+      `${patched};return {setFeatures,getCalls,release,waitForPreflight};`,
+    )(),
+    patched,
+  };
+}
+
+test("skips a queued bundled plugin reconcile that captured a stale feature snapshot", async () => {
+  const { api, patched } = bundledPluginReconcileRaceApi(
+    bundledPluginReconcileRaceFixture(),
+  );
+
+  api.setFeatures({ externalBrowserUse: false, inAppBrowserUse: false });
+  await api.waitForPreflight();
+  const latestReconcile = api.setFeatures({
+    externalBrowserUse: true,
+    inAppBrowserUse: true,
+  });
+  api.release();
+  await latestReconcile;
+
+  assert.deepEqual(api.getCalls(), [
+    { externalBrowserUse: true, inAppBrowserUse: true },
+  ]);
+  assert.equal(
+    (patched.match(/codex-linux-skip-stale-bundled-plugin-reconcile/g) || []).length,
+    1,
+  );
+});
+
+test("reconciles an authoritative disabled bundled plugin snapshot", async () => {
+  const { api } = bundledPluginReconcileRaceApi(
+    bundledPluginReconcileRaceFixture(),
+  );
+
+  const reconcile = api.setFeatures({
+    externalBrowserUse: false,
+    inAppBrowserUse: false,
+  });
+  await api.waitForPreflight();
+  api.release();
+  await reconcile;
+
+  assert.deepEqual(api.getCalls(), [
+    { externalBrowserUse: false, inAppBrowserUse: false },
+  ]);
+});
+
+test("escapes dollar-prefixed bundled plugin reconcile identifiers", async () => {
+  const { api, patched } = bundledPluginReconcileRaceApi(
+    bundledPluginReconcileRaceFixture({
+      capturedHashVar: "$c",
+      capturedSnapshotVar: "$n",
+      featureStateVar: "$p",
+      forceVar: "$force",
+      latestHashVar: "$h",
+      pendingVar: "$v",
+      reasonVar: "$reason",
+      workerArgVar: "$t",
+      workerVar: "$j",
+    }),
+  );
+
+  api.setFeatures({ externalBrowserUse: false, inAppBrowserUse: false });
+  await api.waitForPreflight();
+  const latestReconcile = api.setFeatures({
+    externalBrowserUse: true,
+    inAppBrowserUse: true,
+  });
+  api.release();
+  await latestReconcile;
+
+  assert.deepEqual(api.getCalls(), [
+    { externalBrowserUse: true, inAppBrowserUse: true },
+  ]);
+  assert.equal(
+    (patched.match(/codex-linux-skip-stale-bundled-plugin-reconcile/g) || []).length,
+    1,
+  );
+});
+
+test("fails closed when the bundled plugin reconcile worker is ambiguous", () => {
+  const source =
+    bundledPluginReconcileRaceFixture() +
+    "j=async q=>{let y;try{y=await destructive({appServerConnection:null})}finally{}};";
+  const { value, warnings } = captureWarns(() =>
+    applyLinuxBundledPluginReconcileStaleSnapshotPatch(source),
+  );
+  assert.equal(value, source);
+  assert.match(warnings[0], /Expected one bundled plugin reconcile worker definition/);
+});
+
+test("fails closed when bundled plugin reconcile insertion order drifts", () => {
+  const source = bundledPluginReconcileRaceFixture()
+    .replace("h=c;return v=", "return v=")
+    .replace("let j=async", "h=c;let j=async");
+  const { value, warnings } = captureWarns(() =>
+    applyLinuxBundledPluginReconcileStaleSnapshotPatch(source),
+  );
+  assert.equal(value, source);
+  assert.match(warnings[0], /insertion order drifted/);
 });
 
 test("uses Linux managed runtime paths for Chrome native host sync", () => {
@@ -4754,6 +7168,142 @@ test("uses Linux managed runtime paths for current Chrome plugin app-server sync
   assert.match(patched, /MM\(e\.resourcesPath\)\?\?codexLinuxChromeNativeHostRuntimeEnv\(`CODEX_NODE_REPL_PATH`\)/);
 });
 
+test("uses Linux Codex CLI path for Chrome plugin app-server sync", async () => {
+  const patched = applyPatchTwice(
+    applyLinuxChromeNativeHostRuntimePatch,
+    currentChromePluginCodexAppServerRuntimeBundleFixture(),
+  );
+  const files = new Set(["/home/josh/.local/bin/codex"]);
+
+  const result = await vm.runInNewContext(
+    `${patched};VH({resourcesPath:"/opt/codex/resources",devRuntimeRepoRoot:null,nativeHostName:"com.openai.codexextension"});`,
+    {
+      require(moduleName) {
+        if (moduleName === "node:path") {
+          return path;
+        }
+        if (moduleName === "node:fs") {
+          return {
+            statSync(filePath) {
+              if (!files.has(filePath)) {
+                throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+              }
+              return { isFile: () => true };
+            },
+          };
+        }
+        return require(moduleName);
+      },
+      process: {
+        platform: "linux",
+        env: {
+          CODEX_CLI_PATH: "/home/josh/.local/bin/codex",
+          PATH: "",
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), {
+    codexCliPath: "/home/josh/.local/bin/codex",
+  });
+});
+
+test("keeps the original Linux CLI path when Chrome plugin app-server sync would isolate it", async () => {
+  const patched = applyPatchTwice(
+    applyLinuxChromeNativeHostRuntimePatch,
+    currentChromePluginIsolatedAppServerRuntimeBundleFixture(),
+  );
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-chrome-esm-cli-"));
+  try {
+    const packageDir = path.join(root, "CLI installs");
+    const cliPath = path.join(packageDir, "codex");
+    const isolatedPath = path.join(root, "isolated", "codex");
+    fs.mkdirSync(path.dirname(isolatedPath), { recursive: true });
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(packageDir, "package.json"), '{"type":"module"}\n');
+    fs.writeFileSync(path.join(packageDir, "dependency.js"), 'export const version = "esm-ok";\n');
+    fs.writeFileSync(
+      cliPath,
+      '#!/usr/bin/env node\nimport { version } from "./dependency.js";\nconsole.log(version);\n',
+    );
+    fs.chmodSync(cliPath, 0o700);
+
+    const result = await vm.runInNewContext(
+      `${patched};VH({resourcesPath:"/opt/codex/resources",devRuntimeRepoRoot:null,nativeHostName:"com.openai.codexextension"});`,
+      {
+        require,
+        process: {
+          platform: "linux",
+          env: {
+            CODEX_CLI_PATH: cliPath,
+            ISSUE805_ISOLATED_CLI: isolatedPath,
+            PATH: "",
+          },
+        },
+      },
+    );
+
+    assert.equal(result, cliPath);
+    assert.equal(fs.existsSync(isolatedPath), false);
+    assert.match(patched, /async function decoy\(e\)\{let t=e\.nativeHostName===nU;return `decoy`\}/);
+    const execution = spawnSync(result, [], { encoding: "utf8" });
+    assert.equal(execution.status, 0, execution.stderr);
+    assert.equal(execution.stdout.trim(), "esm-ok");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("preserves Chrome plugin app-server isolation outside Linux", async () => {
+  const patched = applyPatchTwice(
+    applyLinuxChromeNativeHostRuntimePatch,
+    currentChromePluginIsolatedAppServerRuntimeBundleFixture(),
+  );
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-chrome-non-linux-cli-"));
+  try {
+    const sourcePath = path.join(root, "source-codex");
+    const isolatedPath = path.join(root, "isolated-codex");
+    fs.writeFileSync(sourcePath, "source");
+
+    const result = await vm.runInNewContext(
+      `${patched};AV({codexCliPath:${JSON.stringify(sourcePath)},nativeHostName:"com.openai.codexextension"});`,
+      {
+        require,
+        process: {
+          platform: "darwin",
+          env: { ISSUE805_ISOLATED_CLI: isolatedPath },
+        },
+      },
+    );
+
+    assert.equal(result, isolatedPath);
+    assert.equal(fs.readFileSync(isolatedPath, "utf8"), "source");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("patches multiple Chrome runtime resolvers in one Electron 42 bundle", () => {
+  const patched = applyPatchTwice(
+    applyLinuxChromeNativeHostRuntimePatch,
+    [
+      electron42BrowserUseRuntimeResolverBundleFixture(),
+      currentChromePluginCodexAppServerRuntimeBundleFixture(),
+      currentChromePluginAppServerRuntimeBundleFixture(),
+    ].join(""),
+  );
+
+  assert.match(
+    patched,
+    /codexLinuxChromeNativeHostRuntimeEntry\(codexLinuxChromeNativeHostRuntimePath\(`codex`\),`linux-path`\)\?\?Wn/,
+  );
+  assert.match(patched, /_U\(e\)\?\?codexLinuxChromeNativeHostRuntimeEnv\(`CODEX_CLI_PATH`\)\?\?codexLinuxChromeNativeHostRuntimePath\(`codex`\)/);
+  assert.match(patched, /ZB\(e\)\?\?codexLinuxChromeNativeHostRuntimeEnv\(`CODEX_CLI_PATH`\)\?\?codexLinuxChromeNativeHostRuntimePath\(`codex`\)/);
+  assert.match(patched, /NM\(e\.resourcesPath\)\?\?codexLinuxChromeNativeHostRuntimeEnv\(`CODEX_BROWSER_USE_NODE_PATH`\)/);
+  assert.equal((patched.match(/function codexLinuxChromeNativeHostRuntimeFile/g) || []).length, 1);
+});
+
 test("reports drifted Chrome native host runtime resolver as optional drift", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-patch-report-chrome-runtime-drift-"));
   try {
@@ -4789,54 +7339,26 @@ test("reports drifted Chrome native host runtime resolver as optional drift", ()
 });
 
 test("adds Linux availability to an already auto-installed Chrome plugin gate", () => {
-  const source = currentPluginGateBundleFixture().replace(
-    "{forceReload:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:",
-    "{forceReload:!0,installWhenMissing:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:",
+  const source = currentChromePluginGateBundleFixture().replace(
+    "{forceReload:!0,name:o.c,syncInstallStateWithChromeExtension:!0,isAvailable:",
+    "{forceReload:!0,installWhenMissing:!0,name:o.c,syncInstallStateWithChromeExtension:!0,isAvailable:",
   );
 
   const patched = applyPatchTwice(applyLinuxChromePluginAutoInstallPatch, source);
 
   assert.match(
     patched,
-    /installWhenMissing:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,features:t\}\)=>process\.platform===`linux`\|\|\(t\.externalBrowserUseAllowed&&\$n\(e\)\)/,
+    /installWhenMissing:!0,name:o\.c,syncInstallStateWithChromeExtension:!0,isAvailable:\(\{buildFlavor:e,features:t\}\)=>process\.platform===`linux`\|\|\(t\.externalBrowserUseAllowed&&n\.Cs\(e\)\)/,
   );
 });
 
 test("keeps a fully Linux-enabled Chrome plugin gate unchanged", () => {
-  const source = currentPluginGateBundleFixture().replace(
-    "{forceReload:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,features:t})=>t.externalBrowserUseAllowed&&$n(e)}",
-    "{forceReload:!0,installWhenMissing:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,features:t})=>process.platform===`linux`||(t.externalBrowserUseAllowed&&$n(e))}",
+  const source = currentChromePluginGateBundleFixture().replace(
+    "{forceReload:!0,name:o.c,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,features:t})=>t.externalBrowserUseAllowed&&n.Cs(e)}",
+    "{forceReload:!0,installWhenMissing:!0,name:o.c,syncInstallStateWithChromeExtension:!0,isAvailable:({buildFlavor:e,features:t})=>process.platform===`linux`||(t.externalBrowserUseAllowed&&n.Cs(e))}",
   );
 
   assert.equal(applyPatchTwice(applyLinuxChromePluginAutoInstallPatch, source), source);
-});
-
-test("does not treat unrelated Linux platform checks as Chrome plugin availability", () => {
-  const source = currentPluginGateBundleFixture()
-    .replace(
-      "{forceReload:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:",
-      "{forceReload:!0,installWhenMissing:!0,name:ut,syncInstallStateWithChromeExtension:!0,isAvailable:",
-    )
-    .replace(
-      "({buildFlavor:e,features:t})=>t.externalBrowserUseAllowed&&$n(e)}",
-      "function({features:t}){return t.externalBrowserUseAllowed}}",
-    ) + "var __codexOtherLinuxPatch=process.platform===`linux`;";
-
-  assert.throws(
-    () => applyLinuxChromePluginAutoInstallPatch(source),
-    /Required Linux Chrome plugin auto-install patch failed/,
-  );
-});
-
-test("handles literal Chrome plugin gate names", () => {
-  const source =
-    "var Kr=[{forceReload:!0,name:'chrome',isEnabled:({features:t})=>t.externalBrowserUseAllowed},{forceReload:!0,name:'chrome-internal',isEnabled:({features:t})=>t.externalBrowserUseAllowed}];";
-
-  const patched = applyPatchTwice(applyLinuxChromePluginAutoInstallPatch, source);
-
-  assert.match(patched, /installWhenMissing:!0,name:'chrome'/);
-  assert.match(patched, /process\.platform===`linux`\|\|\(t\.externalBrowserUseAllowed\)/);
-  assert.doesNotMatch(patched, /installWhenMissing:!0,name:'chrome-internal'/);
 });
 
 test("reports missing Chrome plugin auto-install gate as optional drift", () => {
@@ -4851,7 +7373,7 @@ test("reports missing Chrome plugin auto-install gate as optional drift", () => 
 
     const pluginGatePatch = report.patches.find((patch) => patch.name === "linux-chrome-plugin-auto-install");
     assert.equal(pluginGatePatch.status, "skipped-optional");
-    assert.match(pluginGatePatch.reason, /Could not find Chrome plugin gate literal/);
+    assert.match(pluginGatePatch.reason, /Could not find Chrome plugin auto-install gate/);
     assert.ok(
       !validateReport(report, "upstream-build").some((failure) =>
         failure.startsWith("linux-chrome-plugin-auto-install:"),
@@ -4866,7 +7388,7 @@ test("reports missing Chrome plugin auto-install gate as optional drift", () => 
   }
 });
 
-test("patches Computer Use gates that use imported namespace constants", () => {
+test("registers Linux Computer Use independently of the upstream rollout", () => {
   const source = [
     "var lt=`computer-use`;",
     "var Ur=[{autoInstallOptOutKey:e.Nn(e.Dn),forceReload:!0,installWhenMissing:!0,name:e.Dn,isAvailable:({features:e})=>e.inAppBrowserUseAllowed,migrate:$n},{name:e.kn,isAvailable:({features:e,platform:t})=>t===`darwin`&&e.computerUse,migrate:mr},{installWhenMissing:!0,name:e.kn,isAvailable:({buildFlavor:e,features:n,platform:r})=>t.T.isInternal(e)&&r===`win32`&&n.computerUse},{name:e.An,isAvailable:()=>!0}];",
@@ -4874,7 +7396,7 @@ test("patches Computer Use gates that use imported namespace constants", () => {
 
   const patched = applyPatchTwice(applyLinuxComputerUsePluginGatePatch, source);
 
-  assert.match(patched, /installWhenMissing:!0,name:e\.kn,isAvailable:\(\{features:e,platform:t\}\)=>\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse,migrate:mr/);
+  assert.match(patched, /installWhenMissing:!0,name:e\.kn,isAvailable:\(\{features:e,platform:t\}\)=>t===`linux`\|\|t===`darwin`&&e\.computerUse,migrate:mr/);
   assert.match(patched, /t\.T\.isInternal\(e\)&&r===`win32`&&n\.computerUse/);
   assert.equal((patched.match(/installWhenMissing:!0,name:e\.kn/g) || []).length, 2);
 });
@@ -4995,7 +7517,7 @@ test("shows current Computer Use plugin UI on Linux without the upstream rollout
   );
 });
 
-test("shows current use-is-plugins-enabled Computer Use UI on Linux", () => {
+test("shows current Computer Use hook UI on Linux", () => {
   const source =
     "function p(e){return e===`macOS`||e===`windows`}" +
     "function m(e){let t=(0,d.c)(8),{enabled:n,hostId:r,isHostLocal:i}=e,a=n===void 0?!0:n,{isLoading:o,platform:s}=l(),u=c(`1506311413`),m;t[0]===r?m=t[1]:(m={featureName:`computer_use`,hostId:r},t[0]=r,t[1]=m);let h=f(m),g;t[2]===s?g=t[3]:(g=p(s),t[2]=s,t[3]=g);let _=a&&i&&u&&(o||g),v=_&&!o&&h.enabled&&!h.isLoading,y=_&&h.isLoading,b=_&&(o||h.isLoading),x;return x}";
@@ -5080,6 +7602,853 @@ test("patches later Browser Use navigation dispatches when an earlier one is alr
     2,
   );
   assert.doesNotMatch(patched, /browser-use-non-local-sites-allowed-changed`,\{allowed:p\}/);
+});
+
+test("remounts a delayed active Browser webview exactly once and preserves its logical tab", () => {
+  const timers = [];
+  const timerApi = {
+    clearTimeout(timer) {
+      timer.cleared = true;
+    },
+    setTimeout(callback) {
+      const timer = { callback, cleared: false };
+      timers.push(timer);
+      return timer;
+    },
+  };
+  const warnings = [];
+  const errors = [];
+  const logger = {
+    error: (message, details) => errors.push({ details, message }),
+    warn: (message, details) => warnings.push({ details, message }),
+  };
+  const recoveryRef = { current: { attempt: 0, key: "conversation-1\0tab-1" } };
+  const logicalTab = {
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    url: "http://localhost:4173/demo",
+  };
+  let currentHost = null;
+  let hostGeneration = 0;
+  let remounts = 0;
+  const createHost = () => {
+    const host = {
+      generation: ++hostGeneration,
+      listener: null,
+      logicalTab,
+      listenForDidAttach(listener) {
+        this.listener = listener;
+        return () => {
+          if (this.listener === listener) this.listener = null;
+        };
+      },
+    };
+    currentHost = host;
+    return host;
+  };
+  const firstHost = createHost();
+
+  const inactiveCleanup = codexLinuxWatchBrowserWebviewAttachment({
+    active: false,
+    browserTabId: logicalTab.browserTabId,
+    conversationId: logicalTab.conversationId,
+    host: firstHost,
+    logger,
+    recoveryRef,
+    remount: () => false,
+    timerApi,
+  });
+  inactiveCleanup();
+  assert.equal(timers.length, 0);
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: logicalTab.browserTabId,
+    conversationId: logicalTab.conversationId,
+    host: firstHost,
+    logger,
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      createHost();
+      return true;
+    },
+    timerApi,
+  });
+  timers[0].callback();
+
+  assert.equal(remounts, 1);
+  assert.equal(currentHost.generation, 2);
+  assert.equal(currentHost.logicalTab, logicalTab);
+  assert.equal(currentHost.logicalTab.url, "http://localhost:4173/demo");
+  assert.equal(recoveryRef.current.attempt, 1);
+  assert.equal(warnings.length, 1);
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: logicalTab.browserTabId,
+    conversationId: logicalTab.conversationId,
+    host: currentHost,
+    logger,
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      return true;
+    },
+    timerApi,
+  });
+  currentHost.listener();
+  timers[1].callback();
+
+  assert.equal(remounts, 1);
+  assert.equal(recoveryRef.current.attempt, 2);
+  assert.equal(errors.length, 0);
+});
+
+test("does not remount a retained Browser webview that is already attached", () => {
+  const timers = [];
+  const recoveryRef = { current: { attempt: 0, key: "conversation-1\0tab-1" } };
+  let listenerCount = 0;
+  let remounts = 0;
+  let completions = 0;
+  const cleanup = codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    completeRecovery: () => {
+      completions += 1;
+    },
+    conversationId: "conversation-1",
+    host: {
+      listenForDidAttach() {
+        listenerCount += 1;
+        return () => {};
+      },
+      webview: {
+        getWebContentsId: () => 42,
+        isConnected: true,
+      },
+    },
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      return true;
+    },
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback) {
+        timers.push(callback);
+        return callback;
+      },
+    },
+  });
+
+  cleanup();
+  assert.equal(listenerCount, 0);
+  assert.equal(timers.length, 0);
+  assert.equal(remounts, 0);
+  assert.equal(completions, 1);
+  assert.equal(recoveryRef.current.attempt, 2);
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    completeRecovery: () => {
+      completions += 1;
+    },
+    conversationId: "conversation-1",
+    host: recoveryRef.current.host,
+    recoveryRef,
+    recoveryState: { attempt: 0, deadlineAt: 5_000 },
+    remount: () => true,
+    timerApi: {
+      clearTimeout() {},
+      setTimeout() {
+        throw new Error("attached host must not schedule recovery");
+      },
+    },
+  });
+  assert.equal(completions, 2);
+});
+
+test("closes the attachment race after registering the Browser webview listener", () => {
+  const timers = [];
+  const recoveryRef = { current: { attempt: 0, key: "conversation-1\0tab-1" } };
+  const webview = {
+    getWebContentsId: () => 0,
+    isConnected: true,
+  };
+  let removed = 0;
+  const cleanup = codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    host: {
+      listenForDidAttach() {
+        webview.getWebContentsId = () => 43;
+        return () => {
+          removed += 1;
+        };
+      },
+      webview,
+    },
+    recoveryRef,
+    remount: () => true,
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback) {
+        timers.push(callback);
+        return callback;
+      },
+    },
+  });
+
+  assert.equal(timers.length, 0);
+  assert.equal(recoveryRef.current.attempt, 2);
+  assert.equal(removed, 1);
+  cleanup();
+  assert.equal(removed, 2);
+});
+
+test("watches a replacement Browser webview host for the same logical tab", () => {
+  const timers = [];
+  const recoveryRef = { current: null };
+  let remounts = 0;
+  const attachedHost = {
+    webview: {
+      getWebContentsId: () => 44,
+      isConnected: true,
+    },
+  };
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    host: attachedHost,
+    recoveryRef,
+    remount: () => true,
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback) {
+        timers.push(callback);
+        return callback;
+      },
+    },
+  });
+  assert.equal(recoveryRef.current.attempt, 2);
+
+  const replacementHost = { listenForDidAttach: () => () => {} };
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    host: replacementHost,
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      return true;
+    },
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback) {
+        timers.push(callback);
+        return callback;
+      },
+    },
+  });
+  assert.equal(recoveryRef.current.attempt, 0);
+  assert.equal(recoveryRef.current.host, replacementHost);
+  timers[0]();
+  assert.equal(remounts, 1);
+  assert.equal(recoveryRef.current.attempt, 1);
+});
+
+test("keeps Browser webview attachment deadlines bounded across effect restarts", () => {
+  let clock = 1_000;
+  const timers = [];
+  const timerApi = {
+    clearTimeout(timer) {
+      timer.cleared = true;
+    },
+    setTimeout(callback, delay) {
+      const timer = { callback, cleared: false, delay };
+      timers.push(timer);
+      return timer;
+    },
+  };
+  const recoveryRef = { current: { attempt: 0, key: "conversation-1\0tab-1" } };
+  const host = { listenForDidAttach: () => () => {} };
+  const replacementHost = { listenForDidAttach: () => () => {} };
+  let remounts = 0;
+  const watch = (
+    conversationId = "conversation-1",
+    browserTabId = "tab-1",
+    watchedHost = host,
+  ) =>
+    codexLinuxWatchBrowserWebviewAttachment({
+      active: true,
+      browserTabId,
+      conversationId,
+      host: watchedHost,
+      now: () => clock,
+      recoveryRef,
+      remount: () => {
+        remounts += 1;
+        return true;
+      },
+      timerApi,
+    });
+
+  let cleanup = watch();
+  assert.equal(timers[0].delay, 5_000);
+  clock = 4_000;
+  cleanup();
+  cleanup = watch("conversation-1", "tab-1", replacementHost);
+  assert.equal(timers[1].delay, 2_000);
+  clock = 6_000;
+  timers[1].callback();
+  assert.equal(remounts, 1);
+  assert.equal(recoveryRef.current.attempt, 1);
+  assert.equal(recoveryRef.current.deadlineAt, 11_000);
+
+  clock = 9_000;
+  cleanup();
+  cleanup = watch("conversation-2", "tab-2", replacementHost);
+  assert.equal(timers[2].delay, 2_000);
+  assert.equal(recoveryRef.current.attempt, 1);
+  assert.equal(recoveryRef.current.deadlineAt, 11_000);
+  assert.equal(recoveryRef.current.key, "conversation-2\0tab-2");
+  cleanup();
+});
+
+test("starts a fresh Browser recovery window for a different logical tab", () => {
+  const oldHost = { listenForDidAttach: () => () => {} };
+  const newHost = { listenForDidAttach: () => () => {} };
+  const recoveryRef = {
+    current: {
+      attempt: 1,
+      deadlineAt: 11_000,
+      host: oldHost,
+      key: "conversation-1\0tab-1",
+    },
+  };
+  const timers = [];
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-2",
+    conversationId: "conversation-1",
+    host: newHost,
+    now: () => 9_000,
+    recoveryRef,
+    remount: () => true,
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback, delay) {
+        timers.push({ callback, delay });
+        return callback;
+      },
+    },
+  });
+
+  assert.equal(recoveryRef.current.attempt, 0);
+  assert.equal(recoveryRef.current.deadlineAt, 14_000);
+  assert.equal(recoveryRef.current.host, newHost);
+  assert.equal(recoveryRef.current.key, "conversation-1\0tab-2");
+  assert.equal(timers[0].delay, 5_000);
+});
+
+test("inherits the initial Browser recovery deadline in a fresh component", () => {
+  const timers = [];
+  const recoveryRef = { current: null };
+  const recoveryState = { attempt: 0, deadlineAt: 11_000 };
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-2",
+    conversationId: "conversation-2",
+    host: { listenForDidAttach: () => () => {} },
+    now: () => 9_000,
+    recoveryRef,
+    recoveryState,
+    remount: () => true,
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback, delay) {
+        timers.push({ callback, delay });
+        return callback;
+      },
+    },
+  });
+
+  assert.equal(recoveryRef.current.attempt, 0);
+  assert.equal(recoveryRef.current.deadlineAt, 11_000);
+  assert.equal(timers[0].delay, 2_000);
+});
+
+test("fails Browser webview attachment deterministically after one remount", () => {
+  const timers = [];
+  const timerApi = {
+    clearTimeout(timer) {
+      timer.cleared = true;
+    },
+    setTimeout(callback) {
+      const timer = { callback, cleared: false };
+      timers.push(timer);
+      return timer;
+    },
+  };
+  const errors = [];
+  const logger = {
+    error: (message, details) => errors.push({ details, message }),
+    warn: () => {},
+  };
+  const recoveryRef = { current: { attempt: 0, key: "conversation-1\0tab-1" } };
+  const createHost = () => ({ listenForDidAttach: () => () => {} });
+  let remounts = 0;
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    host: createHost(),
+    logger,
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      return true;
+    },
+    timerApi,
+  });
+  timers[0].callback();
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    host: createHost(),
+    logger,
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      return true;
+    },
+    timerApi,
+  });
+  timers[1].callback();
+
+  assert.equal(remounts, 1);
+  assert.equal(recoveryRef.current.attempt, 2);
+  assert.equal(errors.length, 1);
+  assert.equal(
+    errors[0].message,
+    "IAB_LIFECYCLE Linux Browser webview attachment failed after one remount",
+  );
+  assert.deepEqual(errors[0].details, {
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+  });
+});
+
+test("fails Browser webview attachment deterministically when remount is rejected", () => {
+  const timers = [];
+  const errors = [];
+  const recoveryRef = { current: { attempt: 0, key: "conversation-2\0tab-2" } };
+  let remounts = 0;
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-2",
+    conversationId: "conversation-2",
+    host: { listenForDidAttach: () => () => {} },
+    logger: {
+      error: (message, details) => errors.push({ details, message }),
+      warn: () => {},
+    },
+    recoveryRef,
+    remount: () => {
+      remounts += 1;
+      return false;
+    },
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback) {
+        timers.push(callback);
+        return callback;
+      },
+    },
+  });
+  timers[0]();
+
+  assert.equal(remounts, 1);
+  assert.equal(recoveryRef.current.attempt, 2);
+  assert.equal(recoveryRef.current.deadlineAt, null);
+  assert.equal(recoveryRef.current.key, "conversation-2\0tab-2");
+  assert.equal(errors.length, 1);
+  assert.equal(
+    errors[0].message,
+    "IAB_LIFECYCLE Linux Browser webview attachment recovery remount was rejected",
+  );
+  assert.deepEqual(errors[0].details, {
+    browserTabId: "tab-2",
+    conversationId: "conversation-2",
+  });
+});
+
+test("keeps shared Browser recovery active when another watcher wins remount", () => {
+  let clock = 5_000;
+  let sharedState = { attempt: 0, deadlineAt: 5_000 };
+  let failures = 0;
+  const timers = [];
+  const host = { listenForDidAttach: () => () => {} };
+  const remount = (deadlineAt) => {
+    if (sharedState.attempt >= 1) {
+      return { started: false, state: sharedState };
+    }
+    sharedState = { attempt: 1, deadlineAt };
+    return { started: true, state: sharedState };
+  };
+  const watch = (recoveryRef, recoveryState = { attempt: 0, deadlineAt: 5_000 }) =>
+    codexLinuxWatchBrowserWebviewAttachment({
+      active: true,
+      browserTabId: "tab-1",
+      conversationId: "conversation-1",
+      failRecovery: () => {
+        failures += 1;
+        sharedState = { attempt: 2, deadlineAt: null };
+      },
+      host,
+      logger: { error() {}, warn() {} },
+      now: () => clock,
+      recoveryRef,
+      recoveryState,
+      remount,
+      timerApi: {
+        clearTimeout() {},
+        setTimeout(callback, delay) {
+          timers.push({ callback, delay });
+          return callback;
+        },
+      },
+    });
+
+  const firstRef = { current: null };
+  const secondRef = { current: null };
+  watch(firstRef);
+  watch(secondRef);
+  timers[0].callback();
+  timers[1].callback();
+
+  assert.equal(failures, 0);
+  assert.deepEqual(sharedState, { attempt: 1, deadlineAt: 10_000 });
+  assert.equal(firstRef.current.attempt, 1);
+  assert.equal(secondRef.current.attempt, 1);
+
+  clock = 9_000;
+  const replacementRef = { current: null };
+  watch(replacementRef, sharedState);
+  assert.equal(replacementRef.current.deadlineAt, 10_000);
+  assert.equal(timers[2].delay, 1_000);
+});
+
+test("does not poison shared Browser recovery when a stale host timer fires", () => {
+  let failures = 0;
+  let errors = 0;
+  const timers = [];
+  const recoveryRef = { current: null };
+
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-1",
+    conversationId: "conversation-1",
+    failRecovery: () => {
+      failures += 1;
+    },
+    host: { listenForDidAttach: () => () => {} },
+    logger: {
+      error() {
+        errors += 1;
+      },
+      warn() {},
+    },
+    recoveryRef,
+    recoveryState: { attempt: 0, deadlineAt: 5_000 },
+    remount: () => null,
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback) {
+        timers.push(callback);
+        return callback;
+      },
+    },
+  });
+  timers[0]();
+
+  assert.equal(failures, 0);
+  assert.equal(errors, 0);
+  assert.equal(recoveryRef.current.attempt, 2);
+});
+
+test("patches the current Browser webview store and host atomically", () => {
+  const storeSource =
+    "function Af(e,t){return t??e}function Ef(e,t){return`${e}\\0${t}`}var Pf=class{webviews=new Map;snapshots=new Map;tabPersistenceStates=new Map;browserUseActiveTabKeys=new Set;browserUseViewportSizes=new Map;transferredWebviewKeys=new Set;registrationAttempts=new WeakMap;nextHostGeneration=0;getSnapshot(e,t){return this.snapshots.get(Ef(e,t))??null}setBrowserUseActive(e,...t){let n=typeof t[0]==`boolean`?Af(e,void 0):t[0],r=typeof t[0]==`boolean`?t[0]:t[1],i=Ef(e,n),a=this.browserUseActiveTabKeys.has(i);if(r){let t=`${e}\\0`;for(let e of Array.from(this.browserUseActiveTabKeys)){if(e===i||!e.startsWith(t))continue;this.browserUseActiveTabKeys.delete(e);let n=null}this.browserUseActiveTabKeys.add(i)}else this.browserUseActiveTabKeys.delete(i);return a}releaseBrowserUseTab(e,t){let n=Ef(e,t),r=this.browserUseActiveTabKeys.delete(n);return r}removeTab(e,t){let n=Ef(e,t),r=this.webviews.get(n);this.webviews.delete(n)}registerWebviewHost(e,t){return true}removeConversationTabs(e){let t=`${e}\\0`;for(let e of this.snapshots.keys())e.startsWith(t)&&this.snapshots.delete(e)}reassociateTabState(e,...t){let n=t[0],r=t[1],i=t[2],o=`transfer`,s=Ef(e,n),c=Ef(r,i);if(s===c||this.transferredWebviewKeys.has(o))return;if(this.webviews.has(c))return;let m=this.browserUseViewportSizes.get(s)??null,h=this.browserUseActiveTabKeys.delete(s);h&&this.browserUseActiveTabKeys.add(c);return m}disposeAll(){this.electronPageHandoff.disposeAll(),this.webviews.clear()}disposeWebviewHost(e,t,n,r){this.webviews.delete(n)}emitChange(){for(let e of this.listeners)e()}}";
+  const hostSource =
+    "function hT({adoptionLease:e,adoptedWebContentsId:t,bounds:n,browserTabId:r,children:i,conversationId:a,hostKind:o=`right-panel`,initialUrl:s,isVisible:c,persistedTabsEnabled:l=!1,scale:u,shouldBootstrapWhenHidden:d,shouldPaint:f,webviewRef:p,windowZoom:m}){let h=(0,vT.useRef)(null),g=(0,vT.useId)(),y=(0,vT.useRef)(Up.getMountGeneration(a,r)),x=(0,vT.useSyncExternalStore)(Up.subscribe,()=>Up.getCursorOverlayHost(a,r),()=>null);let S=c&&n!=null;return(0,vT.useLayoutEffect)(()=>{let _=Up.getWebview(a,r,s,{adoptionLease:e,adoptedWebContentsId:t,hostKind:o,persistedTabsEnabled:l});h.current=_,Up.syncElectronWebview(_,{bounds:n,isVisible:S,mountGeneration:y.current,scale:u,shouldBootstrap:d,shouldPaint:f,windowZoom:m},p,o)},[r,a,o,s,e,t,n,S,g,l,u,f,d,p,m]),x==null||i==null?null:createPortal(i,x)}";
+  const source = `${storeSource};${hostSource}`;
+  const patched = applyPatchTwice(
+    applyLinuxBrowserUseWebviewAttachRecoveryPatch,
+    source,
+  );
+
+  assert.match(patched, /linuxRemountWebview\(e,t,n,r\)/);
+  assert.match(
+    patched,
+    /let i=Ef\(e,t\),a=this\.linuxBrowserUseRecoveryStates\.get\(i\);if\(a\?\.attempt>=1\)return\{started:!1,state:a\};if\(this\.webviews\.get\(i\)!==n\)return null/,
+  );
+  assert.match(patched, /linuxBrowserUseRecoveryStates\.get\(i\)/);
+  assert.match(patched, /linuxStartWebviewRecovery\(e,t,n\)/);
+  assert.match(patched, /linuxCompleteWebviewRecovery\(e,t,n\)/);
+  assert.match(patched, /linuxFailWebviewRecovery\(e,t,n\)/);
+  assert.match(
+    patched,
+    /r\|\|this\.linuxBrowserUseRecoveryStates\.delete\(Ef\(e,n\)\)/,
+  );
+  assert.match(
+    patched,
+    /removeTab\(e,t\)\{let n=Ef\(e,t\);this\.linuxBrowserUseRecoveryStates\.delete\(n\);let r=/,
+  );
+  assert.match(
+    patched,
+    /removeConversationTabs\(e\)\{let t=`\$\{e\}\\0`;for\(let e of this\.linuxBrowserUseRecoveryStates\.keys\(\)\)/,
+  );
+  assert.match(
+    patched,
+    /releaseBrowserUseTab\(e,t\)\{let n=Ef\(e,t\);this\.linuxBrowserUseRecoveryStates\.delete\(n\);let r=/,
+  );
+  assert.match(
+    patched,
+    /browserUseActiveTabKeys\.delete\(e\);this\.linuxBrowserUseRecoveryStates\.delete\(e\);let n=/,
+  );
+  assert.match(
+    patched,
+    /linuxBrowserUseRecoveryStates\.delete\(s\),this\.linuxBrowserUseRecoveryStates\.set\(c,codexLinuxRecoveryState\)/,
+  );
+  assert.match(patched, /disposeAll\(\)\{this\.electronPageHandoff\.disposeAll\(\),this\.linuxBrowserUseRecoveryStates\.clear\(\),/);
+  assert.match(patched, /function codexLinuxWatchBrowserWebviewAttachment/);
+  assert.match(
+    patched,
+    /Up\.linuxRemountWebview\(a,r,_,codexLinuxRemountDeadline\)/,
+  );
+  assert.match(patched, /typeof Up\.linuxRemountWebview==`function`/);
+  assert.match(patched, /Up\.linuxStartWebviewRecovery\(a,r,Date\.now\(\)\+5e3\)/);
+  assert.match(patched, /Up\.linuxCompleteWebviewRecovery\(a,r,_\)/);
+  assert.match(patched, /Up\.linuxFailWebviewRecovery\(a,r,_\)/);
+  assert.match(
+    patched,
+    /Up\.getWebview\(a,r,s,\{adoptionLease:e,adoptedWebContentsId:t,hostKind:o,persistedTabsEnabled:l\}\)/,
+  );
+  assert.match(
+    patched,
+    /useSyncExternalStore\)\(Up\.subscribe,\(\)=>Up\.isBrowserUseActive\(a,r\),\(\)=>!1\)/,
+  );
+  assert.match(patched, /codexLinuxBrowserUseActive,x\]\)/);
+  assert.match(
+    patched,
+    /useEffect\)\(\(\)=>\{codexLinuxBrowserUseActive\|\|\(codexLinuxBrowserWebviewRecoveryRef\.current=\{attempt:0,deadlineAt:null,host:null,key:a\+`\\0`\+r\}\)\},\[codexLinuxBrowserUseActive,a,r\]\)/,
+  );
+  assert.doesNotThrow(() => new vm.Script(patched));
+
+  const Store = vm.runInNewContext(`${patched};Pf`);
+  const store = new Store();
+  store.listeners = new Set();
+  const firstHost = { generation: 1 };
+  const secondHost = { generation: 2 };
+  const snapshot = { url: "http://localhost:4173/demo" };
+  const persistence = { browserStorageId: "browser-1", mode: "persistent" };
+  store.webviews.set("conversation-1\0tab-1", firstHost);
+  store.snapshots.set("conversation-1\0tab-1", snapshot);
+  store.tabPersistenceStates.set("conversation-1\0tab-1", persistence);
+  assert.equal(
+    store.linuxRemountWebview("conversation-1", "tab-1", firstHost).started,
+    true,
+  );
+  assert.equal(store.snapshots.get("conversation-1\0tab-1"), snapshot);
+  assert.equal(
+    store.tabPersistenceStates.get("conversation-1\0tab-1"),
+    persistence,
+  );
+  const losingWatcherResult = store.linuxRemountWebview(
+    "conversation-1",
+    "tab-1",
+    firstHost,
+  );
+  assert.equal(losingWatcherResult.started, false);
+  assert.equal(losingWatcherResult.state.attempt, 1);
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  store.linuxCompleteWebviewRecovery("conversation-1", "tab-1", firstHost);
+  assert.equal(
+    store.linuxBrowserUseRecoveryStates.get("conversation-1\0tab-1").attempt,
+    1,
+  );
+  store.linuxFailWebviewRecovery("conversation-1", "tab-1", firstHost);
+  assert.equal(
+    store.linuxBrowserUseRecoveryStates.get("conversation-1\0tab-1").attempt,
+    1,
+  );
+  assert.equal(
+    store.linuxRemountWebview("conversation-1", "tab-1", secondHost).started,
+    false,
+  );
+  store.setBrowserUseActive("conversation-1", "tab-1", false);
+  assert.equal(
+    store.linuxRemountWebview("conversation-1", "tab-1", secondHost).started,
+    true,
+  );
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  store.removeTab("conversation-1", "tab-1");
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  assert.equal(
+    store.linuxRemountWebview("conversation-1", "tab-1", secondHost).started,
+    true,
+  );
+  const thirdHost = { generation: 3 };
+  store.webviews.set("conversation-2\0tab-2", thirdHost);
+  assert.equal(
+    store.linuxRemountWebview("conversation-2", "tab-2", thirdHost).started,
+    true,
+  );
+  store.removeConversationTabs("conversation-2");
+  store.webviews.set("conversation-2\0tab-2", thirdHost);
+  assert.equal(
+    store.linuxRemountWebview("conversation-2", "tab-2", thirdHost).started,
+    true,
+  );
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  store.browserUseActiveTabKeys.add("conversation-1\0tab-1");
+  store.setBrowserUseActive("conversation-1", "tab-2", true);
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  assert.equal(
+    store.linuxRemountWebview("conversation-1", "tab-1", secondHost).started,
+    true,
+  );
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  store.releaseBrowserUseTab("conversation-1", "tab-1");
+  store.webviews.set("conversation-1\0tab-1", secondHost);
+  assert.equal(
+    store.linuxRemountWebview("conversation-1", "tab-1", secondHost).started,
+    true,
+  );
+  store.linuxBrowserUseRecoveryStates.set("conversation-1\0tab-1", {
+    attempt: 1,
+    deadlineAt: 11_000,
+  });
+  store.reassociateTabState(
+    "conversation-1",
+    "tab-1",
+    "conversation-2",
+    "tab-2",
+  );
+  assert.equal(store.linuxBrowserUseRecoveryStates.has("conversation-1\0tab-1"), false);
+  assert.deepEqual(store.linuxStartWebviewRecovery("conversation-2", "tab-2", 14_000), {
+    attempt: 1,
+    deadlineAt: 11_000,
+  });
+  const reassociatedHost = { listenForDidAttach: () => () => {} };
+  const reassociatedTimers = [];
+  const reassociatedRecoveryRef = { current: null };
+  let reassociatedClock = 9_000;
+  store.webviews.set("conversation-2\0tab-2", reassociatedHost);
+  codexLinuxWatchBrowserWebviewAttachment({
+    active: true,
+    browserTabId: "tab-2",
+    conversationId: "conversation-2",
+    host: reassociatedHost,
+    failRecovery: () =>
+      store.linuxFailWebviewRecovery(
+        "conversation-2",
+        "tab-2",
+        reassociatedHost,
+      ),
+    logger: { error() {}, warn() {} },
+    now: () => reassociatedClock,
+    recoveryRef: reassociatedRecoveryRef,
+    recoveryState: store.linuxStartWebviewRecovery(
+      "conversation-2",
+      "tab-2",
+      14_000,
+    ),
+    remount: (deadlineAt) =>
+      store.linuxRemountWebview(
+        "conversation-2",
+        "tab-2",
+        reassociatedHost,
+        deadlineAt,
+      ),
+    timerApi: {
+      clearTimeout() {},
+      setTimeout(callback, delay) {
+        reassociatedTimers.push({ callback, delay });
+        return callback;
+      },
+    },
+  });
+  assert.equal(reassociatedRecoveryRef.current.attempt, 1);
+  assert.equal(reassociatedRecoveryRef.current.deadlineAt, 11_000);
+  assert.equal(reassociatedTimers[0].delay, 2_000);
+  reassociatedClock = 11_000;
+  reassociatedTimers[0].callback();
+  assert.equal(reassociatedRecoveryRef.current.attempt, 2);
+  assert.equal(
+    store.linuxStartWebviewRecovery("conversation-2", "tab-2", 20_000).attempt,
+    2,
+  );
+  assert.equal(store.webviews.get("conversation-2\0tab-2"), reassociatedHost);
+  store.linuxBrowserUseRecoveryStates.set("conversation-3\0tab-3", {
+    attempt: 0,
+    deadlineAt: 15_000,
+  });
+  store.reassociateTabState(
+    "conversation-3",
+    "tab-3",
+    "conversation-4",
+    "tab-4",
+  );
+  assert.deepEqual(
+    store.linuxStartWebviewRecovery("conversation-4", "tab-4", 20_000),
+    { attempt: 0, deadlineAt: 15_000 },
+  );
+  store.electronPageHandoff = { disposeAll() {} };
+  store.disposeAll();
+  assert.equal(store.linuxBrowserUseRecoveryStates.size, 0);
+});
+
+test("Browser webview recovery descriptor targets the current combined renderer chunk", () => {
+  const descriptor = require("./patches/core/all-linux/webview/browser-use-attach-recovery/patch.js");
+
+  assert.match(
+    "app-initial~app-main~onboarding-page-current.js",
+    descriptor.pattern,
+  );
+  assert.doesNotMatch(
+    "app-initial~artifact-tab-content.electron~app-main~new-thread-panel-page-current.js",
+    descriptor.pattern,
+  );
+});
+
+test("Browser webview recovery stays fail-soft when only the host seam matches", () => {
+  const hostOnlySource =
+    "function hT({adoptionLease:e,adoptedWebContentsId:t,bounds:n,browserTabId:r,children:i,conversationId:a,hostKind:o=`right-panel`,initialUrl:s,isVisible:c,persistedTabsEnabled:l=!1,scale:u,shouldBootstrapWhenHidden:d,shouldPaint:f,webviewRef:p,windowZoom:m}){let h=(0,vT.useRef)(null),g=(0,vT.useId)(),y=(0,vT.useRef)(Up.getMountGeneration(a,r)),x=(0,vT.useSyncExternalStore)(Up.subscribe,()=>Up.getCursorOverlayHost(a,r),()=>null);let S=c&&n!=null;return(0,vT.useLayoutEffect)(()=>{let _=Up.getWebview(a,r,s,{adoptionLease:e,adoptedWebContentsId:t,hostKind:o,persistedTabsEnabled:l});h.current=_,Up.syncElectronWebview(_,{bounds:n,isVisible:S,mountGeneration:y.current,scale:u,shouldBootstrap:d,shouldPaint:f,windowZoom:m},p,o)},[r,a,o,s,e,t,n,S,g,l,u,f,d,p,m]),x==null||i==null?null:createPortal(i,x)}";
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (message) => warnings.push(message);
+  try {
+    assert.equal(
+      applyLinuxBrowserUseWebviewAttachRecoveryPatch(hostOnlySource),
+      hostOnlySource,
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.ok(warnings.some((message) => message.includes("did not patch atomically")));
 });
 
 test("hydrates local chat search results before navigating", () => {
@@ -5294,6 +8663,43 @@ test("keeps object-helper Computer Use host compatibility on Linux when platform
   );
 });
 
+test("Computer Use availability descriptor matches the current settings bundle name", () => {
+  const [descriptor] = require("./patches/core/all-linux/webview/computer-use-ui/patch.js");
+
+  assert.match("computer-use-settings-B1QCeMSP.js", descriptor.pattern);
+  assert.doesNotMatch("use-model-settings-5PHNqYL4.js", descriptor.pattern);
+  assert.doesNotMatch("use-is-plugins-enabled-current.js", descriptor.pattern);
+  assert.doesNotMatch("use-native-apps.electron-DhuUEit1.js", descriptor.pattern);
+});
+
+test("keeps current Computer Use settings availability enabled on Linux", () => {
+  const source =
+    "let availability=useAvailability(arg),{platform:platform}=usePlatform();" +
+    "let props={computerUseAvailability:availability,platform:platform};" +
+    "availability.available&&render(props);";
+
+  const patched = applyPatchTwice(applyLinuxComputerUseRendererAvailabilityPatch, source);
+
+  assert.match(
+    patched,
+    /platform===`linux`&&\(availability=\{\.\.\.availability,available:!0,isFetching:!1,isLoading:!1\}\);/,
+  );
+});
+
+test("does not give synthetic Computer Use plugin cards an invalid marketplace directory path", () => {
+  const source =
+    "let {computerUseAvailability:availability,platform:platform}=state;" +
+    "let pluginsQuery=usePlugins(selectedHost,emptyPlugins),marketplacePath=useMarketplacePath(selectedHost),featureFlag=useFeatureFlag(featureFlagArg),computerUsePlugin;" +
+    "computerUsePlugin=selectPlugin(pluginsQuery.availablePlugins,pluginName,marketplacePath);";
+
+  const patched = applyPatchTwice(applyLinuxComputerUseRendererAvailabilityPatch, source);
+
+  assert.match(patched, /marketplaceName:`openai-bundled`/);
+  assert.doesNotMatch(patched, /marketplaceName:`openai-curated`/);
+  assert.match(patched, /marketplacePath:marketplacePath/);
+  assert.doesNotMatch(patched, /marketplacePath:`openai-bundled\/plugins\/computer-use`/);
+});
+
 test("warns without partially patching when Computer Use renderer availability gate drifts", () => {
   const source =
     "function g(e){return e===`macOS`||e===`windows`}" +
@@ -5322,136 +8728,309 @@ test("patches all Computer Use renderer availability gates in one pass", () => {
   assert.doesNotMatch(patched, /let _=a&&i&&l&&\(o\|\|m\)/);
 });
 
-test("allows Computer Use install flow on Linux", () => {
-  const patched = applyPatchTwice(
-    applyLinuxComputerUseInstallFlowPatch,
-    computerUseInstallFlowBundleFixture(),
-  );
+test("enables native app mentions on Linux in the current Computer Use picker", () => {
+  const source =
+    "function Iz(e){let t=(0,Lz.c)(9),{enabled:n}=e,{platform:r,isLoading:i}=yt(),a=n&&(r===`macOS`||r===`windows`),o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o={order:`usage`},t[0]=o):o=t[0];let s;t[1]===a?s=t[2]:(s={params:o,queryConfig:{enabled:a,staleTime:fe.FIVE_MINUTES,refetchOnWindowFocus:!1}},t[1]=a,t[2]=s);let c=Ce(`native-desktop-apps`,s),l;t[3]!==c||t[4]!==a?(l=a?c.data?.apps??[]:[],t[3]=c,t[4]=a,t[5]=l):l=t[5];let u=i||a&&c.isLoading,d;return t[6]!==l||t[7]!==u?(d={nativeApps:l,isLoading:u},t[6]=l,t[7]=u,t[8]=d):d=t[8],d}" +
+    "function Ope(e){let{platform:u}=yt(),v=l.formatMessage({id:`computerUse.label`,defaultMessage:`Computer use`}),y=n[0]??null,b=[{description:l.formatMessage({id:`computerUse.nativeApps.microsoftExcel.detail`,defaultMessage:`Live workbook control`})}],D;t[4]===r?D=t[5]:(D=e=>({queryKey:ve(`computer-use-native-desktop-app-icon`,{appPath:e.appPath}),queryFn:()=>ie(`computer-use-native-desktop-app-icon`,{params:{appPath:e.appPath}}),enabled:r!=null,staleTime:fe.INFINITE,refetchOnWindowFocus:!1}),t[4]=r,t[5]=D);return v}";
 
-  assert.match(
-    patched,
-    /re=!ne\.isLoading&&ne\.enabled\|\|navigator\.userAgent\.includes\(`Linux`\)/,
-  );
+  const patched = applyPatchTwice(applyLinuxComputerUseRendererAvailabilityPatch, source);
+
+  assert.match(patched, /a=n&&\(r===`macOS`\|\|r===`windows`\|\|r===`linux`\)/);
+  assert.doesNotMatch(patched, /a=n&&\(r===`macOS`\|\|r===`windows`\)/);
 });
 
-test("allows current Computer Use install flow on Linux", () => {
+test("enables native app usage queries on Linux when Computer Use labels move out of the chunk", () => {
   const source =
-    "te=ne({featureName:`computer_use`,hostId:t}),z=B({hostId:t,isHostLocal:m}),ie=re({hostId:t,isHostLocal:m}),U=!te.isLoading&&te.enabled,G=z.available,oe=ie.available,";
+    "function Iz(e){let t=(0,Lz.c)(9),{enabled:n}=e,{platform:r,isLoading:i}=yt(),a=n&&(r===`macOS`||r===`windows`),o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o={order:`usage`},t[0]=o):o=t[0];let s;t[1]===a?s=t[2]:(s={params:o,queryConfig:{enabled:a,staleTime:fe.FIVE_MINUTES,refetchOnWindowFocus:!1}},t[1]=a,t[2]=s);let c=Ce(`native-desktop-apps`,s),l;t[3]!==c||t[4]!==a?(l=a?c.data?.apps??[]:[],t[3]=c,t[4]=a,t[5]=l):l=t[5];let u=i||a&&c.isLoading,d;return t[6]!==l||t[7]!==u?(d={nativeApps:l,isLoading:u},t[6]=l,t[7]=u,t[8]=d):d=t[8],d}";
+
+  const patched = applyPatchTwice(applyLinuxComputerUseRendererAvailabilityPatch, source);
+
+  assert.match(patched, /a=n&&\(r===`macOS`\|\|r===`windows`\|\|r===`linux`\)/);
+  assert.doesNotMatch(patched, /a=n&&\(r===`macOS`\|\|r===`windows`\)/);
+});
+
+test("scopes unlabeled native app usage gate patch away from adjacent platform gates", () => {
+  const source =
+    "function unrelated(e){let{enabled:n}=e,{platform:r}=yt(),a=n&&(r===`macOS`||r===`windows`);return a}" +
+    "function Iz(e){let t=(0,Lz.c)(9),{enabled:o}=e,{platform:c,isLoading:l}=yt(),u=o&&(c===`macOS`||c===`windows`),p;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(p={order:`usage`},t[0]=p):p=t[0];let s;t[1]===u?s=t[2]:(s={params:p,queryConfig:{enabled:u,staleTime:fe.FIVE_MINUTES,refetchOnWindowFocus:!1}},t[1]=u,t[2]=s);let h=Ce(`native-desktop-apps`,s),g;t[3]!==h||t[4]!==u?(g=u?h.data?.apps??[]:[],t[3]=h,t[4]=u,t[5]=g):g=t[5];let m=l||u&&h.isLoading,d;return t[6]!==g||t[7]!==m?(d={nativeApps:g,isLoading:m},t[6]=g,t[7]=m,t[8]=d):d=t[8],d}";
+
+  const patched = applyPatchTwice(applyLinuxComputerUseRendererAvailabilityPatch, source);
+  const unrelatedFunction = patched.slice(
+    patched.indexOf("function unrelated"),
+    patched.indexOf("function Iz"),
+  );
+
+  assert.match(unrelatedFunction, /a=n&&\(r===`macOS`\|\|r===`windows`\)/);
+  assert.doesNotMatch(unrelatedFunction, /`linux`/);
+  assert.match(patched, /u=o&&\(c===`macOS`\|\|c===`windows`\|\|c===`linux`\)/);
+});
+
+test("does not enable unrelated native desktop app queries on Linux", () => {
+  const source =
+    "function useNativeApps(e){let{enabled:n}=e,{platform:r,isLoading:i}=yt(),a=n&&(r===`macOS`||r===`windows`),o={params:{order:`usage`},queryConfig:{enabled:a}};return Ce(`native-desktop-apps`,o)}";
+
+  assert.equal(applyLinuxComputerUseRendererAvailabilityPatch(source), source);
+});
+
+test("allows the current Computer Use platform while preserving upstream gates", () => {
+  const source =
+    "function Rj(e){return e===`macOS`||e===`windows`}" +
+    "function zj(e){let t=(0,Uj.c)(16),{enabled:n,hostId:r}=e,i=n===void 0?!0:n,{isLoading:a,platform:o}=Xt(),s=cn(`1506311413`),c;t[0]===r?c=t[1]:(c={featureName:`computer_use`,hostId:r},t[0]=r,t[1]=c);let l=Fj(c),u=o===`windows`&&!a,d=i&&u,f;t[2]===d?f=t[3]:(f={enabled:d},t[2]=d,t[3]=f);let p=Bj(f),m=l.isLoading||u&&p.isLoading,h=l.enabled&&(!u||p.enabled),g;t[4]!==h||t[5]!==i||t[6]!==m||t[7]!==s||t[8]!==a||t[9]!==o?(g=Hj({areRequiredFeaturesEnabled:h,enabled:i,isAnyFeatureLoading:m,isComputerUseGateEnabled:s,isHostCompatiblePlatform:Rj(o),isPlatformLoading:a,windowType:`electron`}),t[4]=h,t[5]=i,t[6]=m,t[7]=s,t[8]=a,t[9]=o,t[10]=g):g=t[10];return g}";
 
   const patched = applyPatchTwice(applyLinuxComputerUseInstallFlowPatch, source);
 
-  assert.equal(
-    patched,
-    "te=ne({featureName:`computer_use`,hostId:t}),z=B({hostId:t,isHostLocal:m}),ie=re({hostId:t,isHostLocal:m}),U=!te.isLoading&&te.enabled||navigator.userAgent.includes(`Linux`),G=z.available,oe=ie.available,",
-  );
-});
-
-test("patches all Computer Use install flow gates in one pass", () => {
-  const source = [
-    "ne=f({featureName:`computer_use`,hostId:t}),re=!ne.isLoading&&ne.enabled||navigator.userAgent.includes(`Linux`),",
-    "xe=g({featureName:`computer_use`,hostId:o}),ye=!xe.isLoading&&xe.enabled,",
-  ].join("");
-
-  const patched = applyLinuxComputerUseInstallFlowPatch(source);
-
-  assert.equal((patched.match(/navigator\.userAgent\.includes\(`Linux`\)/g) || []).length, 2);
-  assert.doesNotMatch(patched, /ye=!xe\.isLoading&&xe\.enabled,/);
-});
-
-test("auto-approves the app-provided Browser Use node_repl bridge", () => {
-  const source =
-    "return{[`mcp_servers.${pt}`]:{command:i.nodeReplPath,args:[],startup_timeout_sec:120,env:{[dt]:l,[ft]:i.nodePath}}}";
-
-  const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
-
-  assert.match(patched, /tools:\{js:\{approval_mode:`approve`\}\}/);
-  assert.match(patched, /env:\{\[dt\]:l,\[ft\]:i\.nodePath/);
-});
-
-test("patches all Browser Use node_repl approval configs in one pass", () => {
-  const source = [
-    "startup_timeout_sec:120,tools:{js:{approval_mode:`approve`}},env:{[dt]:l}",
-    "startup_timeout_sec:120,env:{[ft]:i.nodePath}",
-  ].join("");
-
-  const patched = applyBrowserUseNodeReplApprovalPatch(source);
-
-  assert.equal((patched.match(/approval_mode:`approve`/g) || []).length, 2);
-  assert.doesNotMatch(patched, /startup_timeout_sec:120,env:\{/);
-});
-
-test("auto-approves the older Browser Use node_repl runtime config builder", () => {
-  const source =
-    "return e.Dn({codexCliPath:o.codexCliPath,nodePath:o.nodePath,nodeReplPath:o.nodeReplPath,platform:o.platform})";
-
-  const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
-
   assert.match(
     patched,
-    /e\.Dn\(\{codexCliPath:o\.codexCliPath,nodePath:o\.nodePath,nodeReplPath:o\.nodeReplPath,tools:\{js:\{approval_mode:`approve`\}\},platform:o\.platform\}\)/,
+    /g=Hj\(\{areRequiredFeaturesEnabled:h,enabled:i,isAnyFeatureLoading:m,isComputerUseGateEnabled:s,isHostCompatiblePlatform:o===`linux`\|\|Rj\(o\),isPlatformLoading:a,windowType:`electron`\}\)/,
   );
+  assert.doesNotMatch(patched, /areRequiredFeaturesEnabled:o===`linux`|isComputerUseGateEnabled:o===`linux`/);
 });
 
-test("auto-approves the current Browser Use node_repl runtime config builder", () => {
+function externalOpenChildClosingWith(code) {
+  const child = new EventEmitter();
+  child.unref = () => {};
+  setImmediate(() => child.emit("close", code));
+  return child;
+}
+
+function externalOpenChildFailingWith(error) {
+  const child = new EventEmitter();
+  child.unref = () => {};
+  setImmediate(() => child.emit("error", error));
+  return child;
+}
+
+function evaluatePatchedExternalOpen({
+  env = {},
+  platform = "linux",
+  spawn = () => {
+    throw new Error("unexpected xdg-open spawn");
+  },
+  originalOpenExternal = async () => undefined,
+} = {}) {
+  const originalCalls = [];
+  const electron = {
+    shell: {
+      openExternal(url, options) {
+        originalCalls.push({ url, options });
+        return originalOpenExternal(url, options);
+      },
+    },
+  };
   const source =
-    "return e.Pn({codexCliPath:c.codexCliPath,codexHome:f,extraEnv:y,nodeModuleDirs:d,nodePath:c.nodePath,nodeReplPath:l?t.Cr(c.nodeReplPath):c.nodeReplPath,platform:c.platform,requestMeta:h,traceMeta:_,trustAllCode:g,trustedBrowserClientSha256s:u,shouldUseWslPaths:l})";
+    "\"use strict\";let e=require(`electron`);async function openExternal(url,options){return e.shell.openExternal(url,options)}";
+  const patched = applyPatchTwice(applyLinuxExternalOpenEnvPatch, source);
+  const openExternal = vm.runInNewContext(`${patched};openExternal`, {
+    require(moduleName) {
+      if (moduleName === "electron") return electron;
+      if (moduleName === "node:child_process") return { spawn };
+      throw new Error(`unexpected module: ${moduleName}`);
+    },
+    process: { platform, env },
+    setTimeout,
+    clearTimeout,
+  });
+  return { openExternal, originalCalls };
+}
 
-  const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
+test("sanitizes Linux external-open environment before xdg-open", async () => {
+  const spawnCalls = [];
+  const env = {
+    PATH: "/usr/bin",
+    DISPLAY: ":1",
+    LD_LIBRARY_PATH: "/tmp/bad",
+    LD_PRELOAD: "/tmp/preload.so",
+    NODE_OPTIONS: "--require /tmp/hook.js",
+    CODEX_LINUX_WEBVIEW_PORT: "1234",
+  };
+  const { openExternal, originalCalls } = evaluatePatchedExternalOpen({
+    env,
+    spawn(command, args, options) {
+      spawnCalls.push({ command, args, options });
+      return externalOpenChildClosingWith(0);
+    },
+  });
 
-  assert.match(
-    patched,
-    /e\.Pn\(\{codexCliPath:c\.codexCliPath,codexHome:f,extraEnv:y,nodeModuleDirs:d,nodePath:c\.nodePath,nodeReplPath:l\?t\.Cr\(c\.nodeReplPath\):c\.nodeReplPath,tools:\{js:\{approval_mode:`approve`\}\},platform:c\.platform/,
-  );
+  await openExternal("https://example.test/docs");
+
+  assert.deepEqual(originalCalls, []);
+  assert.equal(spawnCalls.length, 1);
+  assert.equal(spawnCalls[0].command, "xdg-open");
+  assert.deepEqual(Array.from(spawnCalls[0].args), ["https://example.test/docs"]);
+  assert.equal(spawnCalls[0].options.detached, true);
+  assert.equal(spawnCalls[0].options.stdio, "ignore");
+  assert.equal(spawnCalls[0].options.env.PATH, "/usr/bin");
+  assert.equal(spawnCalls[0].options.env.DISPLAY, ":1");
+  for (const key of [
+    "LD_LIBRARY_PATH",
+    "LD_PRELOAD",
+    "NODE_OPTIONS",
+    "CODEX_LINUX_WEBVIEW_PORT",
+  ]) {
+    assert.equal(Object.hasOwn(spawnCalls[0].options.env, key), false);
+  }
 });
 
-test("auto-approves the Electron 42 Browser Use node_repl runtime config builder", () => {
-  const source =
-    "return t.Fa({codexCliPath:c.codexCliPath,codexHome:m,extraEnv:b,nodeModuleDirs:f,nodePath:c.nodePath,nodeReplPath:u?t.kr(c.nodeReplPath):c.nodeReplPath,platform:c.platform,requestMeta:g,sentryUserId:l,traceMeta:v,trustAllCode:_,trustedBrowserClientSha256s:d,shouldUseWslPaths:u})";
+test("delegates non-string Linux external-open targets to Electron", async () => {
+  const target = { href: "https://example.test/docs" };
+  const options = { activate: false };
+  const { openExternal, originalCalls } = evaluatePatchedExternalOpen({
+    originalOpenExternal: async () => "delegated",
+  });
 
-  const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
-
-  assert.match(
-    patched,
-    /t\.Fa\(\{codexCliPath:c\.codexCliPath,codexHome:m,extraEnv:b,nodeModuleDirs:f,nodePath:c\.nodePath,nodeReplPath:u\?t\.kr\(c\.nodeReplPath\):c\.nodeReplPath,tools:\{js:\{approval_mode:`approve`\}\},platform:c\.platform/,
-  );
+  assert.equal(await openExternal(target, options), "delegated");
+  assert.deepEqual(originalCalls, [{ url: target, options }]);
 });
 
-test("auto-approves the current $a Browser Use node_repl runtime config builder", () => {
-  const source =
-    "\"use strict\";let l=require(`node:fs`),s=require(`node:path`),u=require(`node:crypto`),d=[`upstream-hash`],t={$a:e=>e,Fr:e=>e},c={codexCliPath:null,nodePath:null,nodeReplPath:null,platform:`linux`},p=null,b=null,f=[],g=null,v=null,_=!1,w=!1;function build(){return t.$a({codexCliPath:c.codexCliPath,codexHome:p,extraEnv:b,nodeModuleDirs:f,nodePath:c.nodePath,nodeReplPath:w?t.Fr(c.nodeReplPath):c.nodeReplPath,platform:c.platform,requestMeta:g,sentryUserId:v,traceMeta:_,trustAllCode:null,trustedBrowserClientSha256s:d,shouldUseWslPaths:w})}";
+test("delegates Linux external-open calls with options to Electron", async () => {
+  const options = { activate: false };
+  const { openExternal, originalCalls } = evaluatePatchedExternalOpen({
+    originalOpenExternal: async () => "delegated",
+  });
 
-  const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
-
-  assert.match(
-    patched,
-    /t\.\$a\(\{codexCliPath:c\.codexCliPath,codexHome:p,extraEnv:b,nodeModuleDirs:f,nodePath:c\.nodePath,nodeReplPath:w\?t\.Fr\(c\.nodeReplPath\):c\.nodeReplPath,tools:\{js:\{approval_mode:`approve`\}\},platform:c\.platform/,
-  );
-  assert.match(
-    patched,
-    /trustedBrowserClientSha256s:codexLinuxTrustedBrowserClientSha256s\(d\),shouldUseWslPaths:w/,
-  );
+  assert.equal(await openExternal("https://example.test/docs", options), "delegated");
+  assert.deepEqual(originalCalls, [{ url: "https://example.test/docs", options }]);
 });
 
-test("auto-approves the latest Browser Use node_repl runtime config builder", () => {
+test("falls back to Electron when sanitized xdg-open spawning fails", async () => {
+  const { openExternal, originalCalls } = evaluatePatchedExternalOpen({
+    spawn: () => externalOpenChildFailingWith(new Error("xdg-open missing")),
+    originalOpenExternal: async () => "fallback",
+  });
+
+  assert.equal(await openExternal("https://example.test/docs"), "fallback");
+  assert.deepEqual(originalCalls, [{ url: "https://example.test/docs", options: undefined }]);
+});
+
+test("keeps already-applied Linux external-open patch quiet", () => {
   const source =
-    "\"use strict\";let l=require(`node:fs`),s=require(`node:path`),u=require(`node:crypto`),d=[`upstream-hash`],w=!1,t={Ha:e=>e,Nr:e=>e},c={codexCliPath:null,nodePath:null,nodeReplPath:null,platform:`linux`},p=null,b=null,f=[],g=null,v=!1;function build(){return t.Ha({codexCliPath:c.codexCliPath,codexHome:p,extraEnv:b,nodeModuleDirs:f,nodePath:c.nodePath,nodeReplPath:w?t.Nr(c.nodeReplPath):c.nodeReplPath,platform:c.platform,requestMeta:g,traceMeta:v,trustedBrowserClientSha256s:d,shouldUseWslPaths:w})}";
+    "\"use strict\";let e=require(`electron`);async function openExternal(url,options){return e.shell.openExternal(url,options)}";
+  const patched = applyLinuxExternalOpenEnvPatch(source);
+  const { value, warnings } = captureWarns(() => applyLinuxExternalOpenEnvPatch(patched));
+
+  assert.equal(value, patched);
+  assert.deepEqual(warnings, []);
+});
+
+test("warns when Linux external-open helper exists without wrapped Electron require", () => {
+  const source =
+    "\"use strict\";function codexLinuxPatchExternalOpen(e){return e}let {shell:e}=require(`electron`);";
+  const { value, warnings } = captureWarns(() => applyLinuxExternalOpenEnvPatch(source));
+
+  assert.equal(value, source);
+  assert.deepEqual(warnings, [
+    "WARN: Could not find Electron require initializer — skipping Linux external open environment patch",
+  ]);
+});
+
+test("disables xdg-open path when CODEX_LINUX_DISABLE_EXTERNAL_OPEN_PATCH=1", async () => {
+  const spawnCalls = [];
+  const { openExternal, originalCalls } = evaluatePatchedExternalOpen({
+    env: { CODEX_LINUX_DISABLE_EXTERNAL_OPEN_PATCH: "1" },
+    spawn(command, args, options) {
+      spawnCalls.push({ command, args, options });
+      return externalOpenChildClosingWith(0);
+    },
+    originalOpenExternal: async () => "delegated",
+  });
+
+  assert.equal(await openExternal("https://example.test/docs"), "delegated");
+  assert.equal(spawnCalls.length, 0, "should not spawn xdg-open when env var is set");
+  assert.deepEqual(originalCalls, [{ url: "https://example.test/docs", options: undefined }]);
+});
+
+test("uses xdg-open path when CODEX_LINUX_DISABLE_EXTERNAL_OPEN_PATCH is not 1", async () => {
+  const spawnCalls = [];
+  const env = {
+    PATH: "/usr/bin",
+    DISPLAY: ":1",
+    CODEX_LINUX_DISABLE_EXTERNAL_OPEN_PATCH: "0",
+  };
+  const { openExternal, originalCalls } = evaluatePatchedExternalOpen({
+    env,
+    spawn(command, args, options) {
+      spawnCalls.push({ command, args, options });
+      return externalOpenChildClosingWith(0);
+    },
+  });
+
+  await openExternal("https://example.test/docs");
+
+  assert.deepEqual(originalCalls, []);
+  assert.equal(spawnCalls.length, 1);
+  assert.equal(spawnCalls[0].command, "xdg-open");
+});
+
+test("trusts the current direct Browser Use node_repl runtime config builder", () => {
+  const source = currentBrowserUseTrustedHashesRuntimeBuilderFixture();
 
   const { value: patched, warnings } = captureWarns(() =>
     applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source),
   );
 
   assert.deepEqual(warnings, []);
-  assert.match(
-    patched,
-    /t\.Ha\(\{codexCliPath:c\.codexCliPath,codexHome:p,extraEnv:b,nodeModuleDirs:f,nodePath:c\.nodePath,nodeReplPath:w\?t\.Nr\(c\.nodeReplPath\):c\.nodeReplPath,tools:\{js:\{approval_mode:`approve`\}\},platform:c\.platform/,
-  );
-  assert.match(
-    patched,
-    /trustedBrowserClientSha256s:codexLinuxTrustedBrowserClientSha256s\(d\),shouldUseWslPaths:w/,
+  assert.doesNotMatch(patched, /tools:\{js:\{approval_mode:`approve`\}\}/);
+  assert.match(patched, currentBrowserUseTrustedHashesInsertionRegex);
+  assert.equal(
+    (patched.match(/function codexLinuxTrustedBrowserClientSha256s/g) || []).length,
+    1,
   );
 });
 
-test("auto-approves and trusts the current Browser Use node_repl runtime config builder", () => {
+test("ignores the removed Browser Use async trusted-hash setup shape", () => {
+  const source =
+    "\"use strict\";let l=require(`node:fs`),s=require(`node:path`),u=require(`node:crypto`),d=[`upstream-hash`];async function build({resourcesPath:p,trustedBrowserClientSha256s:h=d}){return h}";
+  const { value, warnings } = captureWarns(() =>
+    applyBrowserUseNodeReplApprovalPatch(source),
+  );
+
+  assert.equal(value, source);
+  assert.deepEqual(warnings, []);
+});
+
+test("ignores Browser Use schema-only trusted hash fields", () => {
+  const source =
+    "var schema={nodePath:EH,nodeReplPath:EH,platform:G().catch(`unknown`),trustedBrowserClientSha256s:DH};";
+  const { value, warnings } = captureWarns(() =>
+    applyBrowserUseNodeReplApprovalPatch(source),
+  );
+
+  assert.equal(value, source);
+  assert.deepEqual(warnings, []);
+});
+
+test("patches re-chunked Browser Use trust hash and approval assets", () => {
+  const extractedDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-browser-rechunked-"));
+  try {
+    const buildDir = path.join(extractedDir, ".vite", "build");
+    fs.mkdirSync(buildDir, { recursive: true });
+    const mainChunk = path.join(buildDir, "main-current.js");
+    const srcChunk = path.join(buildDir, "src-current.js");
+    fs.writeFileSync(
+      mainChunk,
+      currentBrowserUseTrustedHashesRuntimeBuilderFixture(),
+      "utf8",
+    );
+    fs.writeFileSync(
+      srcChunk,
+      "return{[`mcp_servers.${pt}`]:{args:[],command:i,env:n,startup_timeout_sec:120}}",
+      "utf8",
+    );
+
+    const result = applyBrowserUseNodeReplApprovalAssets(extractedDir);
+
+    assert.deepEqual(result, { matched: 2, changed: 2 });
+    const patchedMain = fs.readFileSync(mainChunk, "utf8");
+    const patchedSrc = fs.readFileSync(srcChunk, "utf8");
+    assert.match(patchedMain, /function codexLinuxTrustedBrowserClientSha256s/);
+    assert.match(patchedMain, currentBrowserUseTrustedHashesInsertionRegex);
+    assert.match(patchedSrc, /tools:\{js:\{approval_mode:`approve`\}\}/);
+  } finally {
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+});
+
+test("trusts Linux patched bundled Browser Use clients through the current direct builder", async () => {
   const resourcesRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-current-browser-client-hash-"));
   try {
     const browserClient = path.join(
@@ -5478,95 +9057,25 @@ test("auto-approves and trusts the current Browser Use node_repl runtime config 
     fs.writeFileSync(chromeClient, "patched current chrome client\n", "utf8");
     const browserHash = cryptoHash("patched current browser client\n");
     const chromeHash = cryptoHash("patched current chrome client\n");
-    const source =
-      "\"use strict\";let o=require(`node:fs`),a=require(`node:path`),s=require(`node:crypto`),d=[`upstream-hash`],u=!1,t={La:e=>e,jr:e=>e},c={codexCliPath:null,nodePath:null,nodeReplPath:null,platform:`linux`},m=null,b=null,f=[],g=null,l=null,v=null,_=!1;function build(){return t.La({codexCliPath:c.codexCliPath,codexHome:m,extraEnv:b,nodeModuleDirs:f,nodePath:c.nodePath,nodeReplPath:u?t.jr(c.nodeReplPath):c.nodeReplPath,platform:c.platform,requestMeta:g,sentryUserId:l,traceMeta:v,trustAllCode:_,trustedBrowserClientSha256s:d,shouldUseWslPaths:u}).trustedBrowserClientSha256s}";
+    const source = currentBrowserUseTrustedHashesRuntimeBuilderFixture();
 
     const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
 
     assert.match(patched, /^"use strict";function codexLinuxTrustedBrowserClientSha256s/);
-    assert.match(
-      patched,
-      /t\.La\(\{codexCliPath:c\.codexCliPath,codexHome:m,extraEnv:b,nodeModuleDirs:f,nodePath:c\.nodePath,nodeReplPath:u\?t\.jr\(c\.nodeReplPath\):c\.nodeReplPath,tools:\{js:\{approval_mode:`approve`\}\},platform:c\.platform/,
-    );
-    assert.match(
-      patched,
-      /trustedBrowserClientSha256s:codexLinuxTrustedBrowserClientSha256s\(d\),shouldUseWslPaths:u/,
-    );
+    assert.doesNotMatch(patched, /tools:\{js:\{approval_mode:`approve`\}\}/);
+    assert.match(patched, currentBrowserUseTrustedHashesInsertionRegex);
     assert.equal(
       (patched.match(/function codexLinuxTrustedBrowserClientSha256s/g) || []).length,
       1,
     );
-    assert.doesNotMatch(patched, /for\(let a of/);
-    const linuxHashes = vm.runInNewContext(`${patched};build();`, {
-      require,
-      process: { platform: "linux", resourcesPath: resourcesRoot },
-    });
+    const linuxHashes = await vm.runInNewContext(
+      `${patched};build({trustedBrowserClientSha256s:[\`upstream-hash\`]});`,
+      {
+        require,
+        process: { platform: "linux", resourcesPath: resourcesRoot },
+      },
+    );
     assert.deepEqual(Array.from(linuxHashes), ["upstream-hash", browserHash, chromeHash]);
-  } finally {
-    fs.rmSync(resourcesRoot, { recursive: true, force: true });
-  }
-});
-
-test("recognizes already-approved Electron 42 Browser Use node_repl runtime config builder", () => {
-  const source =
-    "return t.Fa({codexCliPath:c.codexCliPath,codexHome:m,extraEnv:b,nodeModuleDirs:f,nodePath:c.nodePath,nodeReplPath:u?t.kr(c.nodeReplPath):c.nodeReplPath,tools:{js:{approval_mode:`approve`}},platform:c.platform,requestMeta:g,sentryUserId:l,traceMeta:v,trustAllCode:_,trustedBrowserClientSha256s:d,shouldUseWslPaths:u})";
-
-  const { value: patched, warnings } = captureWarns(() =>
-    applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source),
-  );
-
-  assert.equal(patched, source);
-  assert.deepEqual(warnings, []);
-});
-
-test("trusts Linux patched bundled Browser Use clients by hashing staged files", () => {
-  const resourcesRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-browser-client-hash-"));
-  try {
-    const browserClient = path.join(
-      resourcesRoot,
-      "plugins",
-      "openai-bundled",
-      "plugins",
-      "browser",
-      "scripts",
-      "browser-client.mjs",
-    );
-    const chromeClient = path.join(
-      resourcesRoot,
-      "plugins",
-      "openai-bundled",
-      "plugins",
-      "chrome",
-      "scripts",
-      "browser-client.mjs",
-    );
-    fs.mkdirSync(path.dirname(browserClient), { recursive: true });
-    fs.mkdirSync(path.dirname(chromeClient), { recursive: true });
-    fs.writeFileSync(browserClient, "patched browser client\n", "utf8");
-    fs.writeFileSync(chromeClient, "patched chrome client\n", "utf8");
-    const browserHash = cryptoHash("patched browser client\n");
-    const chromeHash = cryptoHash("patched chrome client\n");
-    const source =
-      "\"use strict\";let o=require(`node:fs`),i=require(`node:path`),s=require(`node:crypto`),nt=[`upstream-hash`];function nn({trustedBrowserClientSha256s:e}){return e}function build(){let p=!0,v=!1,f=nt;return nn({trustedBrowserClientSha256s:p||v?f:[]})}";
-
-    const patched = applyPatchTwice(applyBrowserUseNodeReplApprovalPatch, source);
-
-    assert.match(patched, /^"use strict";function codexLinuxTrustedBrowserClientSha256s/);
-    assert.equal(
-      (patched.match(/function codexLinuxTrustedBrowserClientSha256s/g) || []).length,
-      1,
-    );
-    assert.match(patched, /codexLinuxTrustedBrowserClientSha256s\(f\)/);
-    const linuxHashes = vm.runInNewContext(`${patched};build();`, {
-      require,
-      process: { platform: "linux", resourcesPath: resourcesRoot },
-    });
-    assert.deepEqual(Array.from(linuxHashes), ["upstream-hash", browserHash, chromeHash]);
-    const darwinHashes = vm.runInNewContext(`${patched};build();`, {
-      require,
-      process: { platform: "darwin", resourcesPath: resourcesRoot },
-    });
-    assert.deepEqual(Array.from(darwinHashes), ["upstream-hash"]);
   } finally {
     fs.rmSync(resourcesRoot, { recursive: true, force: true });
   }
@@ -5847,7 +9356,7 @@ test("patchMainBundleSource skips Computer Use feature patch by default", () => 
       patched,
       /return n===`linux`\?\{\.\.\.e,computerUse:!0,computerUseNodeRepl:!0\}/,
     );
-    assert.match(patched, /\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/);
+    assert.match(patched, /t===`linux`\|\|t===`darwin`&&e\.computerUse/);
   });
 });
 
@@ -5866,7 +9375,7 @@ test("patchMainBundleSource applies Computer Use feature patch when env var is s
       patched,
       /return n===`linux`\?\{\.\.\.e,computerUse:!0,computerUseNodeRepl:!0\}/,
     );
-    assert.match(patched, /\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/);
+    assert.match(patched, /t===`linux`\|\|t===`darwin`&&e\.computerUse/);
   });
 });
 
@@ -5921,8 +9430,9 @@ test("uses CODEX_APP_ID for Electron desktopName", () => {
 test("patchMainBundleSource keeps non-icon patches active without an icon asset", () => {
   const source = [
     mainBundlePrefix,
+    currentMainBundlePrefix,
     "process.platform===`win32`&&k.removeMenu(),",
-    alreadyOpaqueBackgroundBundle,
+    currentOpaqueWindowSurfaceBackgroundBundle,
     fileManagerBundle,
     trayBundleFixture(),
     singleInstanceBundleFixture(),
@@ -5936,7 +9446,7 @@ test("patchMainBundleSource keeps non-icon patches active without an icon asset"
   assert.match(patched, /codexLinuxIsQuitInProgress=\(\)=>codexLinuxQuitInProgress===!0/);
   assert.match(patched, /codexLinuxShouldBypassQuitPrompt=\(\)=>codexLinuxExplicitQuitApproved===!0/);
   assert.match(patched, /n\.app\.on\(`before-quit`,codexLinuxBeforeQuitHandler\)/);
-  assert.match(patched, /process\.platform===`linux`&&k\.setMenuBarVisibility\(!1\)/);
+  assert.match(patched, /process\.platform===`linux`&&k\.removeMenu\(\)/);
   assert.match(patched, /linux:\{label:`File Manager`/);
   assert.match(
     patched,
@@ -5946,11 +9456,30 @@ test("patchMainBundleSource keeps non-icon patches active without an icon asset"
     patched,
     /process\.platform===`linux`&&process\.env\.CODEX_LINUX_MULTI_LAUNCH!==`1`&&!n\.app\.requestSingleInstanceLock\(\)/,
   );
-  assert.match(patched, /\(t===`darwin`\|\|t===`linux`\)&&e\.computerUse/);
+  assert.match(patched, /t===`linux`\|\|t===`darwin`&&e\.computerUse/);
   assert.doesNotMatch(patched, /setIcon\(process\.resourcesPath\+`\/\.\.\/content\/webview\/assets\//);
   assert.doesNotMatch(
     patched,
     /nativeImage\.createFromPath\(process\.resourcesPath\+`\/\.\.\/content\/webview\/assets\//,
+  );
+});
+
+test("patchMainBundleSource stays idempotent after wrapping the Electron require", () => {
+  const source = [
+    currentMainBundlePrefix,
+    trayBundleFixture().replaceAll("n.", "c."),
+  ].join("");
+
+  const patched = patchMainBundleSource(source, "app-test.png");
+
+  assert.equal(patchMainBundleSource(patched, "app-test.png"), patched);
+  assert.match(
+    patched,
+    /setLinuxTrayContextMenu\(\)\{let e=c\.Menu\.buildFromTemplate/,
+  );
+  assert.doesNotMatch(
+    patched,
+    /setLinuxTrayContextMenu\(\)\{let e=n\.Menu\.buildFromTemplate/,
   );
 });
 
@@ -6054,29 +9583,22 @@ test("missing icon asset skips only icon patches", () => {
       [
         mainBundlePrefix,
         "process.platform===`win32`&&k.removeMenu(),",
-        alreadyOpaqueBackgroundBundle,
+        currentOpaqueWindowSurfaceBackgroundBundle,
         fileManagerBundle,
         trayBundleFixture(),
         singleInstanceBundleFixture(),
       ].join(""),
     );
-    for (const name of [
-      "code-theme-test.js",
-      "general-settings-test.js",
-      "index-test.js",
-      "use-resolved-theme-variant-test.js",
-    ]) {
-      fs.writeFileSync(
-        path.join(assetsDir, name),
-        "opaqueWindows:e?.opaqueWindows??n.opaqueWindows,semanticColors:",
-      );
-    }
+    fs.writeFileSync(
+      path.join(assetsDir, "general-settings-test.js"),
+      "function sn(){let{canImportThemeString:u,setThemePatch:b,theme:x}=p(t),S=vn(r,t),k=[{label:i}],A=[];return x.opaqueWindows}",
+    );
     fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ name: "codex" }));
 
     patchExtractedApp(tempRoot);
 
     const patchedMainPath = path.join(buildDir, "main.js");
-    const patchedThemePath = path.join(assetsDir, "use-resolved-theme-variant-test.js");
+    const patchedThemePath = path.join(assetsDir, "general-settings-test.js");
     const patchedPackagePath = path.join(tempRoot, "package.json");
     const patchedMain = fs.readFileSync(patchedMainPath, "utf8");
     const patchedTheme = fs.readFileSync(patchedThemePath, "utf8");
@@ -6086,7 +9608,7 @@ test("missing icon asset skips only icon patches", () => {
     patchExtractedApp(tempRoot);
 
     assert.match(patchedMain, /linux:\{label:`File Manager`/);
-    assert.match(patchedTheme, /includes\(`linux`\)/);
+    assert.match(patchedTheme, /includes\(`Linux`\)/);
     assert.equal(patchedPackage.desktopName, "codex-desktop.desktop");
     assert.equal(fs.readFileSync(patchedMainPath, "utf8"), patchedMain);
     assert.equal(fs.readFileSync(patchedThemePath, "utf8"), patchedTheme);
@@ -6096,7 +9618,7 @@ test("missing icon asset skips only icon patches", () => {
   }
 });
 
-test("patchExtractedApp scans apps bundles for Computer Use availability when UI is enabled", () => {
+test("patchExtractedApp scans current Computer Use settings bundles when UI is enabled", () => {
   withIsolatedHome(() => {
     process.env[COMPUTER_USE_UI_ENV_VAR] = "1";
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-computer-use-apps-assets-test-"));
@@ -6110,33 +9632,69 @@ test("patchExtractedApp scans apps bundles for Computer Use availability when UI
         [
           mainBundlePrefix,
           "process.platform===`win32`&&k.removeMenu(),",
-          alreadyOpaqueBackgroundBundle,
+          currentOpaqueWindowSurfaceBackgroundBundle,
           fileManagerBundle,
           trayBundleFixture(),
           singleInstanceBundleFixture(),
         ].join(""),
       );
       fs.writeFileSync(
-        path.join(assetsDir, "apps-current.js"),
+        path.join(assetsDir, "computer-use-settings-apps-current.js"),
         "function g(e){return e===`macOS`||e===`windows`}" +
           "function _(e){let t=(0,d.c)(8),{enabled:n,hostId:r,isHostLocal:i}=e,a=n===void 0?!0:n,{isLoading:o,platform:c}=u(),l=s(`1506311413`),f;t[0]===r?f=t[1]:(f={featureName:`computer_use`,hostId:r},t[0]=r,t[1]=f);let p=h(f),m;t[2]===c?m=t[3]:(m=g(c),t[2]=c,t[3]=m);let _=a&&i&&l&&(o||m),v=_&&!o&&p.enabled&&!p.isLoading,y=_&&p.isLoading,b=_&&(o||p.isLoading),x;return x}",
       );
       fs.writeFileSync(
-        path.join(assetsDir, "use-is-plugins-enabled-current.js"),
+        path.join(assetsDir, "computer-use-settings-plugins-current.js"),
         "function p(e){return e===`macOS`||e===`windows`}" +
           "function m(e){let n=(0,f.c)(15),{enabled:r,hostId:i}=e,a=r===void 0?!0:r,{isLoading:o,platform:s}=u(),c=t(i).kind===`local`,d=l(`1506311413`),h;n[0]===i?h=n[1]:(h={featureName:`computer_use`,hostId:i},n[0]=i,n[1]=h);let _=p(h),v;n[2]!==_.enabled||n[3]!==_.isLoading||n[4]!==a||n[5]!==d||n[6]!==c||n[7]!==o||n[8]!==s?(v=g({enabled:a,isComputerUseFeatureEnabled:_.enabled,isComputerUseFeatureLoading:_.isLoading,isComputerUseGateEnabled:d,isHostCompatiblePlatform:p(s),isHostLocal:c,isPlatformLoading:o,windowType:`electron`}),n[2]=_.enabled,n[3]=_.isLoading,n[4]=a,n[5]=d,n[6]=c,n[7]=o,n[8]=s,n[9]=v):v=n[9];return v}",
+      );
+      fs.writeFileSync(
+        path.join(
+          assetsDir,
+          "computer-use-settings-native-apps-current.js",
+        ),
+        "function Iz(e){let t=(0,Lz.c)(9),{enabled:n}=e,{platform:r,isLoading:i}=yt(),a=n&&(r===`macOS`||r===`windows`),o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o={order:`usage`},t[0]=o):o=t[0];let s;t[1]===a?s=t[2]:(s={params:o,queryConfig:{enabled:a,staleTime:fe.FIVE_MINUTES,refetchOnWindowFocus:!1}},t[1]=a,t[2]=s);let c=Ce(`native-desktop-apps`,s),l;t[3]!==c||t[4]!==a?(l=a?c.data?.apps??[]:[],t[3]=c,t[4]=a,t[5]=l):l=t[5];let u=i||a&&c.isLoading,d;return t[6]!==l||t[7]!==u?(d={nativeApps:l,isLoading:u},t[6]=l,t[7]=u,t[8]=d):d=t[8],d}" +
+          "function Ope(e){let{platform:u}=yt(),v=l.formatMessage({id:`computerUse.label`,defaultMessage:`Computer use`}),y=n[0]??null,b=[{description:l.formatMessage({id:`computerUse.nativeApps.microsoftExcel.detail`,defaultMessage:`Live workbook control`})}],D;t[4]===r?D=t[5]:(D=e=>({queryKey:ve(`computer-use-native-desktop-app-icon`,{appPath:e.appPath}),queryFn:()=>ie(`computer-use-native-desktop-app-icon`,{params:{appPath:e.appPath}}),enabled:r!=null,staleTime:fe.INFINITE,refetchOnWindowFocus:!1}),t[4]=r,t[5]=D);return v}",
+      );
+      fs.writeFileSync(
+        path.join(
+          assetsDir,
+          "app-initial~app-main~onboarding-page~hotkey-window-thread-page~quick-chat-window-page~chatg~gwqc41kz-current.js",
+        ),
+        "function _p(e){return e===`macOS`||e===`windows`}" +
+          "function vp(e){let t=(0,Sp.c)(16),{enabled:n,hostId:r}=e,i=n===void 0?!0:n,{isLoading:a,platform:o}=ba(),s=gr(`1506311413`),c;t[0]===r?c=t[1]:(c={featureName:`computer_use`,hostId:r},t[0]=r,t[1]=c);let l=mp(c),u=o===`windows`&&!a,d=i&&u,f;t[2]===d?f=t[3]:(f={enabled:d},t[2]=d,t[3]=f);let p=yp(f),m=l.isLoading||u&&p.isLoading,h=l.enabled&&(!u||p.enabled),g;t[4]!==h||t[5]!==i||t[6]!==m||t[7]!==s||t[8]!==a||t[9]!==o?(g=xp({areRequiredFeaturesEnabled:h,enabled:i,isAnyFeatureLoading:m,isComputerUseGateEnabled:s,isHostCompatiblePlatform:_p(o),isPlatformLoading:a,windowType:`electron`}),t[4]=h,t[5]=i,t[6]=m,t[7]=s,t[8]=a,t[9]=o,t[10]=g):g=t[10];return g}",
       );
       fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ name: "codex" }));
 
       patchExtractedApp(tempRoot);
 
       assert.match(
-        fs.readFileSync(path.join(assetsDir, "apps-current.js"), "utf8"),
+        fs.readFileSync(path.join(assetsDir, "computer-use-settings-apps-current.js"), "utf8"),
         /let _=a&&i&&\(c===`linux`\|\|l&&\(o\|\|m\)\),v=_&&!o&&\(c===`linux`\|\|p\.enabled\)&&!p\.isLoading/,
       );
       assert.match(
-        fs.readFileSync(path.join(assetsDir, "use-is-plugins-enabled-current.js"), "utf8"),
+        fs.readFileSync(path.join(assetsDir, "computer-use-settings-plugins-current.js"), "utf8"),
         /v=g\(\{enabled:a,isComputerUseFeatureEnabled:s===`linux`\|\|_\.enabled,isComputerUseFeatureLoading:s!==`linux`&&_\.isLoading,isComputerUseGateEnabled:s===`linux`\|\|d,isHostCompatiblePlatform:s===`linux`\|\|p\(s\),isHostLocal:c,isPlatformLoading:o,windowType:`electron`\}\)/,
+      );
+      assert.match(
+        fs.readFileSync(
+          path.join(
+            assetsDir,
+            "computer-use-settings-native-apps-current.js",
+          ),
+          "utf8",
+        ),
+        /a=n&&\(r===`macOS`\|\|r===`windows`\|\|r===`linux`\)/,
+      );
+      assert.match(
+        fs.readFileSync(
+          path.join(
+            assetsDir,
+            "app-initial~app-main~onboarding-page~hotkey-window-thread-page~quick-chat-window-page~chatg~gwqc41kz-current.js",
+          ),
+          "utf8",
+        ),
+        /g=xp\(\{areRequiredFeaturesEnabled:h,enabled:i,isAnyFeatureLoading:m,isComputerUseGateEnabled:s,isHostCompatiblePlatform:o===`linux`\|\|_p\(o\),isPlatformLoading:a,windowType:`electron`\}\)/,
       );
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -6156,7 +9714,7 @@ test("patchExtractedApp records a structured patch report", () => {
       [
         mainBundlePrefix,
         "process.platform===`win32`&&k.removeMenu(),",
-        alreadyOpaqueBackgroundBundle,
+        currentOpaqueWindowSurfaceBackgroundBundle,
         fileManagerBundle,
         trayBundleFixture(),
         singleInstanceBundleFixture(),
@@ -6210,7 +9768,7 @@ test("feature patch descriptors honor explicit feature config overrides", () => 
         id: "temp-feature",
         title: "Temp Feature",
         defaultEnabled: false,
-        entrypoints: { patches: "./patch.js" },
+        entrypoints: { patchDescriptors: "./patch.js" },
       }),
     );
     fs.writeFileSync(path.join(featureDir, "README.md"), "# Temp Feature\n");
@@ -6263,7 +9821,7 @@ test("patchExtractedApp report honors explicit feature config overrides", () => 
         id: "temp-feature",
         title: "Temp Feature",
         defaultEnabled: false,
-        entrypoints: { patches: "./patch.js" },
+        entrypoints: { patchDescriptors: "./patch.js" },
       }),
     );
     fs.writeFileSync(path.join(featureDir, "README.md"), "# Temp Feature\n");
@@ -6781,13 +10339,17 @@ test("patcher CLI writes --report-json output", () => {
       [
         mainBundlePrefix,
         "process.platform===`win32`&&k.removeMenu(),",
-        alreadyOpaqueBackgroundBundle,
+        currentOpaqueWindowSurfaceBackgroundBundle,
         fileManagerBundle,
         trayBundleFixture(),
         singleInstanceBundleFixture(),
       ].join(""),
     );
     fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ name: "codex" }));
+    fs.writeFileSync(
+      path.join(assetsDir, "settings-page-bad-linux-patch.js"),
+      'var icons={"agent-workspaces":codexLinuxAgentWorkspaceSettingsIcon,worktrees:WorktreesIcon};',
+    );
 
     const result = spawnSync(
       process.execPath,
@@ -6799,6 +10361,9 @@ test("patcher CLI writes --report-json output", () => {
     const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
     assert.equal(report.mainBundle, "main.js");
     assert.ok(report.patches.some((patch) => patch.name === "main-process-ui"));
+    assert.equal(report.postPatchIntegrity.findingCount, 1);
+    assert.match(report.postPatchIntegrity.findings[0].symbol, /codexLinuxAgentWorkspaceSettingsIcon/);
+    assert.match(report.postPatchIntegrity.findings[0].path, /settings-page-bad-linux-patch\.js$/);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -6953,32 +10518,6 @@ test("a throwing webview-asset patch leaves no partially patched assets", () => 
   }
 });
 
-test("tray close-to-tray patch failure is engine-caught and does not abort patching", () => {
-  // Recognizable-but-unpatchable shape: both markers present, gate shape absent —
-  // applyLinuxTrayCloseSettingPatch throws, the engine must absorb it.
-  const source = "canHideLastLocalWindowToTray /* drifted */ console.log(`Launching app`)";
-  assert.throws(() => applyLinuxTrayCloseSettingPatch(source), /tray settings patch failed/);
-
-  const tempApp = fs.mkdtempSync(path.join(os.tmpdir(), "codex-tray-close-throw-app-"));
-  try {
-    const buildDir = path.join(tempApp, ".vite", "build");
-    fs.mkdirSync(buildDir, { recursive: true });
-    fs.writeFileSync(path.join(buildDir, "main.js"), source);
-
-    const report = createPatchReport();
-    captureWarns(() => patchExtractedApp(tempApp, { report }));
-
-    const entry = report.patches.find((patch) => patch.name === "linux-tray-close-setting");
-    assert.equal(entry?.status, "skipped-optional");
-    assert.equal(entry?.error, true);
-    assert.ok(
-      !criticalFailuresFromReport(report).some((failure) => failure.name === "linux-tray-close-setting"),
-    );
-  } finally {
-    fs.rmSync(tempApp, { recursive: true, force: true });
-  }
-});
-
 test("criticalFailuresFromReport agrees with validateReport and skips non-applicable statuses", () => {
   const report = {
     patches: [
@@ -7000,6 +10539,104 @@ test("criticalFailuresFromReport agrees with validateReport and skips non-applic
   assert.ok(failures.some((failure) => failure.startsWith("req-bad:")));
   assert.ok(!failures.some((failure) => failure.startsWith("req-not-applicable:")));
   assert.ok(!failures.some((failure) => failure.startsWith("opt-bad:")));
+});
+
+test("validateReport can require enabled features and successful patch entries", () => {
+  const report = {
+    enabledFeatures: ["remote-mobile-control"],
+    patches: [
+      {
+        name: "feature:remote-mobile-control:linux-remote-control-load-gate",
+        status: "applied",
+        ciPolicy: "optional",
+      },
+      {
+        name: "linux-app-server-conversation-hydration",
+        status: "already-applied",
+        ciPolicy: "optional",
+      },
+      {
+        name: "feature:remote-mobile-control:linux-remote-mobile-projectless-remote-task",
+        status: "skipped-optional",
+        ciPolicy: "optional",
+        reason: "missing sidebar project groups bundle",
+      },
+    ],
+  };
+
+  const failures = validateReport(report, "feature-probe", {
+    requiredAppliedPatches: [
+      "feature:remote-mobile-control:linux-remote-control-load-gate",
+      "linux-app-server-conversation-hydration",
+    ],
+    requiredEnabledFeatures: ["remote-mobile-control", "missing-feature"],
+    requiredSuccessfulPatches: [
+      "feature:remote-mobile-control:linux-remote-control-load-gate",
+      "linux-app-server-conversation-hydration",
+      "feature:remote-mobile-control:linux-remote-mobile-projectless-remote-task",
+      "feature:remote-mobile-control:missing-entry",
+    ],
+  });
+
+  assert.ok(
+    !failures.some((failure) =>
+      failure.startsWith("feature:remote-mobile-control:linux-remote-control-load-gate:"),
+    ),
+  );
+  assert.ok(
+    failures.includes(
+      "linux-app-server-conversation-hydration: expected applied, got already-applied",
+    ),
+  );
+  assert.ok(failures.includes("feature missing-feature: not enabled in patch report"));
+  assert.ok(
+    failures.some((failure) =>
+      failure.startsWith(
+        "feature:remote-mobile-control:linux-remote-mobile-projectless-remote-task: skipped-optional",
+      ),
+    ),
+  );
+  assert.ok(failures.includes("feature:remote-mobile-control:missing-entry: missing from patch report"));
+});
+
+test("terminal user PATH patch drift is reported as optional", () => {
+  const coreRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-terminal-path-optional-core-"));
+  const tempApp = fs.mkdtempSync(path.join(os.tmpdir(), "codex-terminal-path-optional-app-"));
+  try {
+    writeCorePatchFixture(coreRoot, "sample/terminal-path", [
+      "\"use strict\";",
+      "const { applyLinuxTerminalUserPathPatch } = require(",
+      `  ${JSON.stringify(path.join(__dirname, "patches", "impl", "main-process", "misc.js"))},`,
+      ");",
+      "module.exports = {",
+      "  id: \"linux-terminal-user-path\",",
+      "  phase: \"main-bundle\",",
+      "  ciPolicy: \"optional\",",
+      "  apply: applyLinuxTerminalUserPathPatch,",
+      "};",
+    ].join("\n"));
+
+    const buildDir = path.join(tempApp, ".vite", "build");
+    fs.mkdirSync(buildDir, { recursive: true });
+    fs.writeFileSync(path.join(buildDir, "main.js"), "async buildTerminalEnv(){return null}// node-pty");
+
+    const report = createPatchReport();
+    captureWarns(() => patchExtractedApp(tempApp, { report, corePatchRoot: coreRoot }));
+
+    const entry = report.patches.find((patch) => patch.name === "linux-terminal-user-path");
+    assert.equal(entry?.ciPolicy, "optional");
+    assert.equal(entry?.status, "skipped-optional");
+    assert.ok(
+      optionalDriftFromReport(report).some((drift) => drift.name === "linux-terminal-user-path"),
+      "terminal PATH drift should stay visible as optional drift",
+    );
+    assert.ok(
+      !criticalFailuresFromReport(report).some((failure) => failure.name === "linux-terminal-user-path"),
+    );
+  } finally {
+    fs.rmSync(coreRoot, { recursive: true, force: true });
+    fs.rmSync(tempApp, { recursive: true, force: true });
+  }
 });
 
 test("patchMainBundleSource survives a throwing optional patch without a report", () => {
@@ -7039,7 +10676,7 @@ test("patcher CLI --enforce-critical exits non-zero with an aggregated message",
       [
         mainBundlePrefix,
         "process.platform===`win32`&&k.removeMenu(),",
-        alreadyOpaqueBackgroundBundle,
+        currentOpaqueWindowSurfaceBackgroundBundle,
         fileManagerBundle,
         trayBundleFixture(),
         singleInstanceBundleFixture(),
@@ -7163,7 +10800,7 @@ test("strategy telemetry recorded during apply lands on the patch report entry",
       "  ciPolicy: \"optional\",",
       "  order: 100,",
       "  apply: (source) => {",
-      "    recordStrategy(\"sample-group\", \"legacy:old-shape\");",
+      "    recordStrategy(\"sample-group\", \"upstream-alt-shape\");",
       "    return source.replace(\"codexLinuxStrategyFixture()\", \"codexLinuxStrategyPatched()\");",
       "  },",
       "};",
@@ -7178,7 +10815,7 @@ test("strategy telemetry recorded during apply lands on the patch report entry",
 
     const entry = report.patches.find((patch) => patch.name === "instrumented-sample");
     assert.equal(entry?.status, "applied");
-    assert.deepEqual(entry?.strategies, [{ group: "sample-group", strategy: "legacy:old-shape" }]);
+    assert.deepEqual(entry?.strategies, [{ group: "sample-group", strategy: "upstream-alt-shape" }]);
   } finally {
     fs.rmSync(coreRoot, { recursive: true, force: true });
     fs.rmSync(tempApp, { recursive: true, force: true });

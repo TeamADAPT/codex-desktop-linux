@@ -5,6 +5,137 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- A shared upstream DMG acceptance profile now produces the same structured
+  decision for local installs, updater rebuilds, and scheduled CI. Scheduled
+  rejections create one fingerprinted drift issue and supersede issues for
+  older DMGs. Acceptance evaluates only the user's enabled Linux features and
+  preserves the working app if any enabled feature drifts.
+- Nix module configurations can select the opt-in `mcp-helper-reaper`
+  feature. Its Rust helper is supplied by a reproducible Nix derivation and is
+  not added to the default package closure.
+- An opt-in `global-dictation` Linux feature enables the desktop app's global
+  hold and toggle dictation shortcuts on X11 and Wayland. X11 uses Electron
+  registration with a bounded modifier release watcher, while Wayland uses the
+  XDG GlobalShortcuts and RemoteDesktop portals for press, release, and paste
+  handling without direct input-device access or elevated permissions.
+
+### Changed
+
+- Remote mobile control now relies on the current upstream account-enrollment
+  compatibility and Connections tab resolver instead of patching duplicate
+  Linux-specific fallbacks into those paths.
+- Remote notification hydration, replay, completed-item recovery, and remote
+  terminal-status recovery are no longer part of the default Linux patch set and
+  remain owned by the disabled-by-default `remote-mobile-control` feature.
+- The `remote-mobile-control` feature no longer duplicates the generic Linux
+  `remote_control` config preservation patch already owned by the core patch
+  set.
+
+### Fixed
+
+- Approval notifications now preserve the upstream Approve, Approve for
+  session, and Decline actions on Linux. A small freedesktop notification
+  bridge forwards the action and close signals that Electron's Linux
+  notification backend does not expose, with the existing View-only Electron
+  notification retained as a fail-soft fallback.
+- The opt-in `frameless-titlebar` feature now removes Electron-drawn window
+  controls from Quick Chat as well as the primary window, keeping compositor-
+  managed decoration behavior consistent across both window types.
+- Remote mobile cold starts now select one runtime owner deterministically.
+  Explicit systemd user-service configuration takes precedence over the
+  Desktop app-server and standalone fallback, while a versioned Desktop marker
+  prevents stale or forged marker content from suppressing the fallback.
+- Remote mobile device keys now use a bounded, versioned file store with
+  serialized read-modify-write updates and crash-durable atomic replacement.
+  Unsafe paths, file types, ownership, permissions, malformed records, and
+  oversized stores fail closed instead of being followed or silently erased.
+- Remote mobile control now patches the current upstream webview chunks for
+  feature sync, settings visibility, host enablement, and active conversation
+  status. Revoking the final controller now also clears the current mobile setup
+  state. The enablement bridge accepts the current bundle ordering where its log
+  marker is declared after the request handler.
+- Automated user-local updates no longer inherit or set developer overrides
+  that could replace a running Electron app or bypass DMG acceptance. Manual
+  and timer rebuilds now fail safely at promotion, transactional installs retain
+  only the immediately previous app backup, and drift issue automation mutates
+  only issues carrying its valid fingerprint marker.
+- The Add Project folder picker is no longer parented to the Codex window on
+  Linux X11. This avoids a GNOME Shell modal input grab that could lock desktop
+  input and flood system logs, while preserving parented dialogs on Wayland,
+  macOS, and Windows.
+- Completed thread resume and turn submission once again use the upstream
+  conversation ownership lifecycle. Removing the Linux-only ownership reset
+  and submit-time reclaim avoids false ownership after failed turn starts and
+  races between windows.
+- Updater DMG downloads now publish crash-durable, content-addressed files only
+  after a complete streamed download. Concurrent daemon and wrapper rebuilds
+  cannot truncate or replace each other's input, and DMG hashing stays bounded
+  in memory in both the updater and acceptance engine. A shared cache lease
+  now bounds retained downloads to the state-referenced DMG and safely removes
+  old hashes and temporary files abandoned by interrupted downloads.
+- Linux settings search no longer shows unavailable macOS Dock icon controls or
+  Suggested prompts results that do not render in the generated Linux settings
+  page.
+- Read Aloud no longer crashes the generated Linux desktop settings page after
+  its shared controls moved from React hooks to class components. The feature's
+  enabled state, voice setup actions, and speech pace now use the same
+  class-based global-state bridge as the rest of that page.
+- Cold launches no longer stall for a full second between acquiring the
+  launcher lock and spawning Electron. The CLI version log line reads the
+  probe result through command substitution, and the probe's watchdog
+  subshell inherited that pipe: its `sleep 1` child survived the watchdog
+  kill and held the pipe open until the sleep expired, so even a CLI that
+  answers `--version` in ~50 ms blocked the launch path for ~1 s. The
+  watchdog now runs detached from the caller's stdout/stderr, cutting that
+  launch phase from ~1010 ms to ~74 ms and making the window (and GNOME's
+  startup feedback) appear about a second sooner on every cold start.
+
+### Changed
+
+- Local app generation is transactional: `install.sh` builds and validates a
+  sibling candidate before replacing `codex-app`, keeps the working app on
+  rejected or inconclusive candidates, and uses atomic directory exchange plus
+  a recovery journal so interruption cannot remove the canonical app path.
+- Cold starts overlap the webview server boot with the rest of launcher
+  startup and run the five bundled plugin cache syncs concurrently. The
+  launcher now spawns the Python webview server, does CLI lookup and cache
+  syncs while it boots, and only then waits for readiness and verifies the
+  origin — still strictly before Electron launches. The shared bundled
+  marketplace metadata is staged exactly once before the concurrent syncs
+  instead of being rewritten inside each sync. Measured on a warm-cache cold
+  start, the sync block drops from ~285 ms to ~110 ms and the webview wait
+  from ~150 ms to ~35 ms, putting Electron spawn ~330 ms earlier.
+- The launcher now passes `--disable-dev-shm-usage` to Electron only when
+  `/dev/shm` is missing, not writable, or smaller than 1 GiB (the container
+  case the flag exists for). On regular desktops Chromium's renderer/GPU
+  shared-memory buffers stay in RAM-backed `/dev/shm` instead of disk-backed
+  temp storage, which improves rendering performance. Override with
+  `CODEX_ELECTRON_DISABLE_DEV_SHM_USAGE=auto|0|1`.
+- The launcher now adds `--force-renderer-accessibility` only when an
+  assistive technology is detected (Orca or brltty running, the GNOME
+  screen-reader setting, the AT-SPI accessibility state that
+  `codex-computer-use-linux setup` enables — `org.a11y.Status IsEnabled` or
+  `toolkit-accessibility` — or the `GNOME_ACCESSIBILITY` /
+  `QT_LINUX_ACCESSIBILITY_ALWAYS_ON` / `ACCESSIBILITY_ENABLED` env markers).
+  Keeping the Chromium accessibility engine on in every renderer measurably
+  slows the webview UI, and the WSLg and wayland-gpu profiles already
+  skipped it for that reason. Session-bus probes are watchdog-capped at
+  0.5 s so a broken bus cannot delay launch.
+  `CODEX_FORCE_RENDERER_ACCESSIBILITY=1|0` still overrides the detection in
+  both directions.
+- Refactored ASAR patching internals so `scripts/patch-linux-window-ui.js` is a
+  CLI-only entrypoint and patch descriptors/implementations live under
+  `scripts/patches/`.
+
+### Removed
+
+- Removed legacy external Linux feature patch contracts:
+  `entrypoints.patches`, `entrypoints.mainBundlePatch`, `.patches`/`.default`
+  descriptor exports, the unsuffixed `extracted-app` phase, and
+  `patch-linux-window-ui.js` module exports.
+
 ## [0.8.4] - 2026-06-20
 
 ### Added

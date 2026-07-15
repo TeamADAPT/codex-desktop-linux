@@ -38,6 +38,25 @@ git-ignored `linux-features/features.json` file:
 }
 ```
 
+Feature developers can also define user-overridable settings. Keep shipped
+defaults in tracked `feature.json`, and read user-specific overrides from the
+git-ignored `features.json` file under `settings.<feature-id>`:
+
+```json
+{
+  "enabled": ["my-feature"],
+  "settings": {
+    "my-feature": {
+      "option": "local value"
+    }
+  }
+}
+```
+
+Patch descriptors receive this object as `context.feature.settings`. Treat it
+as optional, validate the shape inside the feature, warn on invalid values, and
+fall back to manifest defaults rather than failing the build.
+
 ## Lifecycle
 
 The build pipeline loads enabled features in these phases:
@@ -54,8 +73,9 @@ The build pipeline loads enabled features in these phases:
 
 Native packages copy the configured feature root into the packaged
 `update-builder` bundle, including `linux-features/local/`, and write a
-sanitized `features.json` containing only the enabled ids. Local auto-updates
-therefore rebuild with the same opt-in features.
+sanitized `features.json` containing the enabled ids plus settings for enabled
+features. Local auto-updates therefore rebuild with the same opt-in features
+and user-specific feature settings.
 
 Declarative staged files are tracked in
 `.codex-linux/linux-features-staged.json`. On the next install, the framework
@@ -66,23 +86,27 @@ manifest and must clean up any feature-owned files themselves.
 
 ## Manifest Keys
 
-`entrypoints` keeps the existing patch and staging API:
+`entrypoints` declares optional feature code hooks. Feature patching uses only
+`patchDescriptors`; features that only stage resources, runtime hooks, package
+hooks, or `stageHook` are still valid without any patch entrypoint.
 
 ```json
 {
   "entrypoints": {
     "patchDescriptors": "./patch.js",
-    "patches": "./patch.js",
-    "mainBundlePatch": "./patch.js",
     "stageHook": "./stage.sh"
   }
 }
 ```
 
-Prefer `patchDescriptors` for new patches. Feature descriptor ids are reported
-as `feature:<feature-id>:<descriptor-id>` and are optional in CI by default.
-`mainBundlePatch` is the compatibility path for older features that export
-`applyMainBundlePatch(source, context)`.
+Patch descriptor modules may export an array directly or `{ "descriptors": [] }`
+from JavaScript. The old `entrypoints.patches`, `entrypoints.mainBundlePatch`,
+`.patches` module export, and `.default` descriptor aliases are not part of the
+contract. Feature descriptor ids are reported as
+`feature:<feature-id>:<descriptor-id>` and are optional in CI by default.
+Supported patch phases are `main-bundle`, `extracted-app:pre-webview`,
+`webview-asset`, and `extracted-app:post-webview`; `order` is sorted only
+inside each phase.
 
 Use `requires` and `conflicts` to declare feature relationships:
 
