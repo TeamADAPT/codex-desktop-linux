@@ -1,5 +1,19 @@
 # Decisions Log
 
+## 2026-07-15 02:31:53 — Codex
+Decision recorded: use freshly fetched and directly confirmed `upstream/main` commit `02c1646` as the synchronization source because upstream advanced after the planning snapshot.
+
+Decision recorded: proceed with a normal fast-forward of `origin/main` because `git merge-base --is-ancestor origin/main upstream/main` succeeded; retain the no-force stop condition for any later remote movement.
+
+Files touched:
+- `.git/FETCH_HEAD`
+- `.git/refs/remotes/upstream/`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:31:25 — Codex
 Decision recorded: begin synchronization only after the user explicitly approved `plans/sync-upstream-origin-local.md`, and advance the ops task into `ops/in_progress/` before changing source refs.
 
