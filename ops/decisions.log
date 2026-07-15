@@ -1,5 +1,23 @@
 # Decisions Log
 
+## 2026-07-15 02:33:27 — Codex
+Decision recorded: preserve both published histories with an explicit merge commit on `working`; accept Git's conflict-free `ort` result because no overlapping source resolution was required.
+
+Decision recorded: record the 400 merged paths in a dedicated task receipt rather than duplicating a large mechanical path list in both reverse-chronological ops logs.
+
+Files touched:
+- `.git/index`
+- `.git/ORIG_HEAD`
+- `.git/MERGE_MSG`
+- `.git/refs/heads/working`
+- All 400 repository paths enumerated in `ops/in_progress/sync_upstream_origin_local/merge_files.txt`
+- `ops/in_progress/sync_upstream_origin_local/merge_files.txt`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:32:44 — Codex
 Decision recorded: fast-forward the local `main` ref directly while remaining on `working`, preserving the dedicated execution branch and avoiding unnecessary worktree churn before integration.
 

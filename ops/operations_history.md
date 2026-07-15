@@ -1,5 +1,29 @@
 # Operations History
 
+## 2026-07-15 02:33:27 — Codex
+Merged the synchronized upstream mainline into the TeamADAPT `working` branch without rewriting either history.
+
+Actions performed:
+
+- Created merge commit `ff98fa450c52e8fa27ba25996b69600fbe5923b3` with TeamADAPT parent `12d15c5` and upstream parent `02c1646`.
+- Git's `ort` merge strategy completed without conflicts or manual source edits.
+- Integrated the upstream delta across 400 paths: 85,028 insertions and 10,390 deletions relative to the prior `working` tip.
+- Captured the complete merged-path inventory in `ops/in_progress/sync_upstream_origin_local/merge_files.txt`.
+- Read the newly integrated `AGENTS.md` and retained the user-provided ops and approval requirements governing this active task.
+
+Files touched:
+- `.git/index`
+- `.git/ORIG_HEAD`
+- `.git/MERGE_MSG`
+- `.git/refs/heads/working`
+- All 400 repository paths enumerated in `ops/in_progress/sync_upstream_origin_local/merge_files.txt`
+- `ops/in_progress/sync_upstream_origin_local/merge_files.txt`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:32:44 — Codex
 Fast-forwarded local `main` from the synchronized TeamADAPT fork mainline.
 
