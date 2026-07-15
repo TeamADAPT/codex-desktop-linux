@@ -1,5 +1,21 @@
 # Operations History
 
+## 2026-07-15 03:15:25 — Codex
+Started the ChatGPT Work mode review.
+
+Actions performed:
+
+- Moved the task from `ops/to_do/` to `ops/in_progress/`.
+- Retained the read-only scope and began evidence collection against upstream and the live installation.
+
+Files touched:
+- `ops/to_do/review_chatgpt_work_mode/`
+- `ops/in_progress/review_chatgpt_work_mode/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:15:08 — Codex
 Selected a focused read-only review task for the newly released ChatGPT Work mode.
 

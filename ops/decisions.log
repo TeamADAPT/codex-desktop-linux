@@ -1,5 +1,16 @@
 # Decisions Log
 
+## 2026-07-15 03:15:25 — Codex
+Decision recorded: evaluate both the wrapper repository and the official desktop payload because the wrapper changelog does not author upstream product releases and can legitimately omit a server-gated desktop feature.
+
+Files touched:
+- `ops/to_do/review_chatgpt_work_mode/`
+- `ops/in_progress/review_chatgpt_work_mode/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:15:08 — Codex
 Decision recorded: perform a read-only evidence review because the request is to identify upstream behavior and configuration, not to modify or enable the feature.
 
