@@ -1,5 +1,21 @@
 # Operations History
 
+## 2026-07-15 03:39:13 — Codex
+Started the approved ChatGPT Work desktop update.
+
+Actions performed:
+
+- Moved the task from `ops/to_do/` to `ops/in_progress/`.
+- Reconfirmed that no installed Codex/ChatGPT process was running before rebuild and promotion.
+
+Files touched:
+- `ops/to_do/update_chatgpt_work_desktop/`
+- `ops/in_progress/update_chatgpt_work_desktop/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:38:54 — Codex
 Selected and planned the approved ChatGPT Work desktop update task.
 
