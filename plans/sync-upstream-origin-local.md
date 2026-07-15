@@ -44,6 +44,6 @@ Success receipts:
 - Validation selected from the merged diff passes, or any failure is reported
   explicitly with its command and output summary.
 
-Status: awaiting user approval.
+Status: approved by the user on 2026-07-15; execution started at 02:31:25 MST.
 
 **— Codex**

@@ -1,5 +1,17 @@
 # Decisions Log
 
+## 2026-07-15 02:31:25 — Codex
+Decision recorded: begin synchronization only after the user explicitly approved `plans/sync-upstream-origin-local.md`, and advance the ops task into `ops/in_progress/` before changing source refs.
+
+Files touched:
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local/task.md`
+- `ops/in_progress/sync_upstream_origin_local/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:29:49 — Codex
 Decision recorded: use the existing `GITHUB_PAT_TOKEN` from `/adapt/secrets/m2.env` for GitHub CLI authentication, pass it only through standard input, and never write the token into repository files, command arguments, or ops logs.
 
