@@ -1,5 +1,18 @@
 # Decisions Log
 
+## 2026-07-15 02:24:02 — Codex
+Decision recorded: do not bypass the failed HTTPS authentication with an unverified SSH host key or force any remote update; keep the task pending plan approval and valid GitHub credentials.
+
+Decision recorded: report the push failure immediately and retain the local planning commit so no documentation work is lost.
+
+Files touched:
+- `.git/objects/`
+- `.git/refs/heads/working`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:22:59 — Codex
 Decision recorded: synchronize in the requested `upstream` to `origin` to local order, and require a normal fast-forward for `origin/main`; do not force-push or rewrite published history.
 

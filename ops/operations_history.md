@@ -1,5 +1,24 @@
 # Operations History
 
+## 2026-07-15 02:24:02 — Codex
+Committed the synchronization plan locally, then stopped when the required `origin/working` push could not authenticate.
+
+Actions performed:
+
+- Created local commit `9d310be` (`Plan upstream origin local synchronization — Codex`).
+- Attempted `git push origin working`; Git reported `could not read Username for 'https://github.com'`.
+- Checked GitHub CLI authentication; the configured `ADAPT-Chase` token is invalid.
+- Checked non-interactive SSH authentication without accepting a new host key; GitHub is not present in the user's known-hosts file, so SSH was not used.
+- Left the synchronization task in `ops/to_do/`; no source refs or source files were changed.
+
+Files touched:
+- `.git/objects/`
+- `.git/refs/heads/working`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:22:59 — Codex
 Created the upstream-to-origin-to-local synchronization task and approval-gated execution plan after verifying the clean worktree and remote topology.
 
