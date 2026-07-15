@@ -1,5 +1,22 @@
 # Operations History
 
+## 2026-07-15 02:33:54 — Codex
+Fast-forwarded the original local development branch to the integrated `working` history after verifying it had not moved independently.
+
+Actions performed:
+
+- Verified `dev/mobile-gpu-route` still resolved to its recorded starting commit `6bcbc63`.
+- Verified `dev/mobile-gpu-route` was an ancestor of `working`.
+- Fast-forwarded local `dev/mobile-gpu-route` to the integrated `working` history without force-pushing or creating a remote branch.
+
+Files touched:
+- `.git/refs/heads/dev/mobile-gpu-route`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:33:27 — Codex
 Merged the synchronized upstream mainline into the TeamADAPT `working` branch without rewriting either history.
 

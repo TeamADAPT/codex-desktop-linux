@@ -1,5 +1,16 @@
 # Decisions Log
 
+## 2026-07-15 02:33:54 — Codex
+Decision recorded: fast-forward local `dev/mobile-gpu-route` only after its commit matched the plan's recorded starting point and it remained an ancestor of `working`; do not publish a new remote branch because none existed before synchronization.
+
+Files touched:
+- `.git/refs/heads/dev/mobile-gpu-route`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 02:33:27 — Codex
 Decision recorded: preserve both published histories with an explicit merge commit on `working`; accept Git's conflict-free `ort` result because no overlapping source resolution was required.
 
