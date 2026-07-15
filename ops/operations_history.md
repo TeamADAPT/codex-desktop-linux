@@ -1,5 +1,24 @@
 # Operations History
 
+## 2026-07-15 03:38:54 — Codex
+Selected and planned the approved ChatGPT Work desktop update task.
+
+Actions performed:
+
+- Verified the `update-native` target performs `git pull --ff-only`, a fresh accepted DMG build, native packaging, and installation.
+- Verified 61 GiB of free disk space and noninteractive `sudo` access.
+- Verified the current package is `codex-desktop 2026.06.26.210745`.
+- Verified the application was already closed before starting the update.
+- Created the user-approved operational plan and queued task record.
+
+Files touched:
+- `plans/update-chatgpt-work-desktop.md`
+- `ops/to_do/update_chatgpt_work_desktop/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:16:46 — Codex
 Closed the ChatGPT Work mode review with the evidence report complete.
 

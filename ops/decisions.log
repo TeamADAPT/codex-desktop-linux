@@ -1,5 +1,18 @@
 # Decisions Log
 
+## 2026-07-15 03:38:54 — Codex
+Decision recorded: treat the user's detailed update procedure as explicit review and approval of `PACKAGE_WITH_UPDATER=0 make update-native`, using the actual checkout path `/adapt/repos/codex-desktop-linux`.
+
+Decision recorded: verify the installed and running system after packaging because generated build output alone is not a live receipt.
+
+Files touched:
+- `plans/update-chatgpt-work-desktop.md`
+- `ops/to_do/update_chatgpt_work_desktop/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:16:46 — Codex
 Decision recorded: close the review as complete because official release notes, the latest official payload, wrapper history, and live-system state agree on the feature's existence, setting, rollout boundary, and current local status.
 
