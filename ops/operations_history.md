@@ -1,5 +1,67 @@
 # Operations History
 
+## 2026-07-15 03:49:25 — Codex
+Closed the ChatGPT Work desktop update after live-system verification.
+
+Actions performed:
+
+- Removed task-specific temporary logs and HTTP response files from `/tmp`.
+- Moved the task from `ops/in_progress/` to `ops/completed/`.
+- Confirmed the updated ChatGPT process remained active during closeout.
+
+Files touched:
+- `/tmp/codex-work-*` (removed)
+- `ops/in_progress/update_chatgpt_work_desktop/`
+- `ops/completed/update_chatgpt_work_desktop/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
+## 2026-07-15 03:48:22 — Codex
+Built, installed, repaired, and live-verified the latest ChatGPT Work-capable desktop package.
+
+Actions performed:
+
+- Ran `PACKAGE_WITH_UPDATER=0 make update-native` from the trusted `working` checkout.
+- Downloaded and hash-verified OpenAI desktop DMG `26.707.72221`.
+- Passed upstream acceptance with no blockers or warnings and promoted the transactional candidate.
+- Built and installed `codex-desktop 2026.07.15.104248` using `sudo`.
+- Verified the no-updater package removed the updater binary, unit, and update-builder payload.
+- Verified the installed Work/Codex selector and setting schema while preserving `STEPS_COMMANDS`.
+- Diagnosed the first live-launch failure as a writable user-local Codex CLI target.
+- Installed root-owned `codex-cli 0.144.4` under `/usr/local` with `sudo` and repointed the user command symlink.
+- Launched the installed application through transient user unit `codex-desktop-live.service`.
+- Verified the live Electron process tree, renderer startup, app-server responses, and HTTP 200 webview.
+- Recorded nonfatal current-run diagnostics in the execution report.
+
+Files touched:
+- `Codex.dmg` (ignored build input)
+- `codex-app/` (ignored generated app)
+- `dist/` (ignored package output and staging)
+- `dist-next/rebuild/` (ignored acceptance reports)
+- `target/`, `notification-actions-linux/target/`, `computer-use-linux/target/` (ignored Rust output)
+- `/opt/codex-desktop/**` (package-managed installed payload; 11,938-path inventory hash in `live_receipt.md`)
+- `/usr/bin/codex-desktop`
+- `/usr/share/applications/codex-desktop.desktop`
+- `/usr/share/icons/hicolor/**/apps/codex-desktop.png`
+- `/var/lib/dpkg/` package database state
+- `/usr/local/bin/codex`
+- `/usr/local/lib/node_modules/@openai/codex/`
+- `/home/x/.local/bin/codex`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `/home/x/.local/state/codex-desktop/`
+- `/run/user/1001/systemd/transient/codex-desktop-live.service`
+- `/tmp/codex-work-*.log`, `/tmp/codex-work-live-*` (temporary receipts; removed after documentation)
+- `plans/update-chatgpt-work-desktop.md`
+- `ops/in_progress/update_chatgpt_work_desktop/execution_report.md`
+- `ops/in_progress/update_chatgpt_work_desktop/live_receipt.md`
+- `ops/in_progress/update_chatgpt_work_desktop/completion_report.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:39:13 — Codex
 Started the approved ChatGPT Work desktop update.
 

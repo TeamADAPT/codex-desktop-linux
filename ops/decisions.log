@@ -1,5 +1,55 @@
 # Decisions Log
 
+## 2026-07-15 03:49:25 — Codex
+Decision recorded: close the task as complete because the accepted package is installed, the Work-capable payload is present, the trusted CLI blocker is repaired, and the running application has live process and HTTP receipts.
+
+Files touched:
+- `/tmp/codex-work-*` (removed)
+- `ops/in_progress/update_chatgpt_work_desktop/`
+- `ops/completed/update_chatgpt_work_desktop/`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
+## 2026-07-15 03:48:22 — Codex
+Decision recorded: accept and install DMG `26.707.72221` because the transactional upstream-release profile returned `accepted` with no blockers, warnings, or inconclusive reasons.
+
+Decision recorded: retain the user's existing `remote-control-ui` and `remote-mobile-control` selections because `update-native` is documented to preserve saved feature configuration; do not enable additional features.
+
+Decision recorded: repair the CLI launch blocker through a root-owned `sudo npm` installation under trusted `/usr/local` instead of weakening the launcher's trust check or chmod-reusing the rejected user-local package tree.
+
+Decision recorded: preserve `conversationDetailMode = "STEPS_COMMANDS"` because the request was to update the application, not force Work mode, and local configuration cannot override account/workspace rollout eligibility.
+
+Decision recorded: leave the updated application running under a transient user systemd unit after live verification; report the current nonfatal renderer/plugin diagnostics without treating them as an installation failure.
+
+Files touched:
+- `Codex.dmg` (ignored build input)
+- `codex-app/` (ignored generated app)
+- `dist/` (ignored package output and staging)
+- `dist-next/rebuild/` (ignored acceptance reports)
+- `target/`, `notification-actions-linux/target/`, `computer-use-linux/target/` (ignored Rust output)
+- `/opt/codex-desktop/**`
+- `/usr/bin/codex-desktop`
+- `/usr/share/applications/codex-desktop.desktop`
+- `/usr/share/icons/hicolor/**/apps/codex-desktop.png`
+- `/var/lib/dpkg/`
+- `/usr/local/bin/codex`
+- `/usr/local/lib/node_modules/@openai/codex/`
+- `/home/x/.local/bin/codex`
+- `/home/x/.cache/codex-desktop/launcher.log`
+- `/home/x/.local/state/codex-desktop/`
+- `/run/user/1001/systemd/transient/codex-desktop-live.service`
+- `/tmp/codex-work-*.log`, `/tmp/codex-work-live-*` (temporary receipts; removed after documentation)
+- `plans/update-chatgpt-work-desktop.md`
+- `ops/in_progress/update_chatgpt_work_desktop/execution_report.md`
+- `ops/in_progress/update_chatgpt_work_desktop/live_receipt.md`
+- `ops/in_progress/update_chatgpt_work_desktop/completion_report.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-15 03:39:13 — Codex
 Decision recorded: proceed directly with the documented update target because preflight passed, the application is closed, the worktree is clean, and the approved no-updater package profile is explicit.
 
