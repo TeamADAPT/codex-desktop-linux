@@ -6360,7 +6360,16 @@ functions = [source[
     source.index("codex_restore_original_ld_library_path() {"):
     source.index("# Capture before package-specific launcher patches")
 ]]
-for name in ("find_codex_cli", "pid_parent_matches", "codex_cli_version_probe", "codex_cli_version", "codex_cli_missing_optional_dependency", "log_codex_cli_path"):
+for name in (
+    "list_codex_cli_candidates",
+    "find_codex_cli",
+    "find_trusted_codex_cli",
+    "pid_parent_matches",
+    "codex_cli_version_probe",
+    "codex_cli_version",
+    "codex_cli_missing_optional_dependency",
+    "log_codex_cli_path",
+):
     match = re.search(r"^" + re.escape(name) + r"\(\) \{[\s\S]*?^\}\n", source, re.M)
     if match is None:
         raise SystemExit(f"missing {name}")

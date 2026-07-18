@@ -1628,13 +1628,24 @@ find_fnm_codex_cli() {
     return 1
 }
 
-find_codex_cli() {
-    if command -v codex >/dev/null 2>&1; then
-        command -v codex
-        return 0
-    fi
-
+# Emit candidate Codex CLI entry paths in preference order (may include
+# duplicates across PATH and static locations). Callers decide trust policy.
+list_codex_cli_candidates() {
+    local dir
+    local candidate
     local nvm_dir="${NVM_DIR:-}"
+    local old_ifs="$IFS"
+
+    IFS=':'
+    for dir in $PATH; do
+        IFS="$old_ifs"
+        if [ -n "$dir" ] && [ -x "$dir/codex" ]; then
+            printf '%s\n' "$dir/codex"
+        fi
+        IFS=':'
+    done
+    IFS="$old_ifs"
+
     if [ -z "$nvm_dir" ]; then
         if [ -s "${XDG_CONFIG_HOME:-$HOME/.config}/nvm/nvm.sh" ]; then
             nvm_dir="${XDG_CONFIG_HOME:-$HOME/.config}/nvm"
@@ -1648,13 +1659,20 @@ find_codex_cli() {
         . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 || true
         if command -v codex >/dev/null 2>&1; then
             command -v codex
-            return 0
         fi
     fi
 
-    local candidate
+    local cached_cli=""
+    local fnm_cli=""
+    if type cached_codex_cli_path >/dev/null 2>&1; then
+        cached_cli="$(cached_codex_cli_path 2>/dev/null || true)"
+    fi
+    if type find_fnm_codex_cli >/dev/null 2>&1; then
+        fnm_cli="$(find_fnm_codex_cli 2>/dev/null || true)"
+    fi
+
     for candidate in \
-        "$(cached_codex_cli_path || true)" \
+        "$cached_cli" \
         "$HOME/.bun/bin/codex" \
         "$HOME/.codex-cli-npm/bin/codex" \
         "$HOME/.npm-global/bin/codex" \
@@ -1662,17 +1680,70 @@ find_codex_cli() {
         "${XDG_CONFIG_HOME:-$HOME/.config}/nvm/versions/node"/*/bin/codex \
         "$HOME/.nvm/versions/node/current/bin/codex" \
         "$HOME/.nvm/versions/node"/*/bin/codex \
-        "$(find_fnm_codex_cli || true)" \
+        "$fnm_cli" \
         "$HOME/.local/share/pnpm/codex" \
         "$HOME/.local/bin/codex" \
         "/usr/local/bin/codex" \
         "/usr/bin/codex"
     do
-        if [ -x "$candidate" ]; then
-            echo "$candidate"
-            return 0
+        if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+            printf '%s\n' "$candidate"
         fi
     done
+}
+
+find_codex_cli() {
+    local candidate
+    while IFS= read -r candidate; do
+        if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done < <(list_codex_cli_candidates)
+    return 1
+}
+
+# Return the first candidate that passes the execution-free trust helper.
+# Optional $1 is a lexical path (or verified target) already rejected.
+find_trusted_codex_cli() {
+    local skip_path="${1:-}"
+    local skip_resolved=""
+    local candidate
+    local candidate_resolved
+    local verified_path
+    local seen=":"
+
+    if [ -n "$skip_path" ]; then
+        skip_resolved="$(readlink -f "$skip_path" 2>/dev/null || printf '%s' "$skip_path")"
+    fi
+
+    while IFS= read -r candidate; do
+        [ -n "$candidate" ] || continue
+        case "$seen" in
+            *":$candidate:"*) continue ;;
+        esac
+        seen="${seen}${candidate}:"
+
+        if [ -n "$skip_path" ]; then
+            if [ "$candidate" = "$skip_path" ]; then
+                continue
+            fi
+            candidate_resolved="$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")"
+            if [ -n "$skip_resolved" ] && [ "$candidate_resolved" = "$skip_resolved" ]; then
+                continue
+            fi
+        fi
+
+        if ! verified_path="$(run_cli_launch_path_helper "$candidate" 2>/dev/null)"; then
+            echo "Skipping untrusted Codex CLI candidate: $candidate" >&2
+            continue
+        fi
+        if [ -z "$verified_path" ]; then
+            continue
+        fi
+        printf '%s\n' "$verified_path"
+        return 0
+    done < <(list_codex_cli_candidates)
 
     return 1
 }
@@ -4179,6 +4250,12 @@ else
     log_phase "warm_start_ready"
 fi
 
+# Explicit pin (env/desktop) must not silently fall through to another CLI.
+CODEX_CLI_PATH_EXPLICIT=0
+if [ -n "${CODEX_CLI_PATH:-}" ]; then
+    CODEX_CLI_PATH_EXPLICIT=1
+fi
+
 if [ -z "${CODEX_CLI_PATH:-}" ]; then
     CODEX_CLI_PATH="$(find_codex_cli || true)"
     export CODEX_CLI_PATH
@@ -4215,8 +4292,30 @@ fi
 
 if [ -n "$CODEX_CLI_PATH" ]; then
     if ! verify_cli_launch_path; then
-        notify_error "The selected Codex CLI failed its execution-free trust check and will not be executed. If it is a rejected managed standalone install, stop active Codex installers and remove its standalone tree. Updater-enabled native packages can then run: codex-update-manager recover-standalone-cli --print-path. With AppImage, Nix, or updaterless packages, reinstall from a verified package channel into a fresh path owned by you or root with no group/world-writable file or parent directory; do not reuse the rejected tree. To switch away from standalone intentionally, also remove ~/.codex-standalone-provenance."
-        exit 1
+        # Auto-discovered PATH hits (often npm under umask 0002) can fail trust
+        # while a later system install is fine. Explicit CODEX_CLI_PATH pins still
+        # hard-fail. Keep fallback optional so extracted smoke probes without
+        # find_trusted_codex_cli retain the original hard-stop behavior.
+        if [ "${CODEX_CLI_PATH_EXPLICIT:-0}" -eq 0 ] && \
+            type find_trusted_codex_cli >/dev/null 2>&1; then
+            echo "Selected Codex CLI failed its execution-free trust check; searching for an alternate trusted CLI..."
+            rejected_cli_path="$CODEX_CLI_PATH"
+            if CODEX_CLI_PATH="$(find_trusted_codex_cli "$rejected_cli_path")"; then
+                export CODEX_CLI_PATH
+                if verify_cli_launch_path; then
+                    echo "Using alternate trusted Codex CLI: $CODEX_CLI_PATH"
+                else
+                    notify_error "The selected Codex CLI failed its execution-free trust check and will not be executed. If it is a rejected managed standalone install, stop active Codex installers and remove its standalone tree. Updater-enabled native packages can then run: codex-update-manager recover-standalone-cli --print-path. With AppImage, Nix, or updaterless packages, reinstall from a verified package channel into a fresh path owned by you or root with no group/world-writable file or parent directory; do not reuse the rejected tree. To switch away from standalone intentionally, also remove ~/.codex-standalone-provenance."
+                    exit 1
+                fi
+            else
+                notify_error "The selected Codex CLI failed its execution-free trust check and will not be executed. If it is a rejected managed standalone install, stop active Codex installers and remove its standalone tree. Updater-enabled native packages can then run: codex-update-manager recover-standalone-cli --print-path. With AppImage, Nix, or updaterless packages, reinstall from a verified package channel into a fresh path owned by you or root with no group/world-writable file or parent directory; do not reuse the rejected tree. To switch away from standalone intentionally, also remove ~/.codex-standalone-provenance."
+                exit 1
+            fi
+        else
+            notify_error "The selected Codex CLI failed its execution-free trust check and will not be executed. If it is a rejected managed standalone install, stop active Codex installers and remove its standalone tree. Updater-enabled native packages can then run: codex-update-manager recover-standalone-cli --print-path. With AppImage, Nix, or updaterless packages, reinstall from a verified package channel into a fresh path owned by you or root with no group/world-writable file or parent directory; do not reuse the rejected tree. To switch away from standalone intentionally, also remove ~/.codex-standalone-provenance."
+            exit 1
+        fi
     fi
     log_phase "cli_launch_path_verified"
 fi

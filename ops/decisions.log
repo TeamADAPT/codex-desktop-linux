@@ -1,5 +1,19 @@
 # Decisions Log
 
+## 2026-07-18 16:23:44 — Weld
+Decision: treat group-writable first-on-PATH Codex CLI as skippable for auto-discovery, not a hard stop, while preserving hard-fail for explicit CODEX_CLI_PATH pins. Enable local ui-tweaks model picker (not committed features.json) so Sol/Terra/Luna render inline; do not unlock ChatGPT account Statsig rollouts.
+
+Files touched:
+- launcher/start.sh.template
+- tests/scripts_smoke.sh
+- plans/fix-launch-and-model-picker.md
+- linux-features/features.json (gitignored)
+- ops/operations_history.md
+- ops/decisions.log
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:23:44 MST · umask 0002 is a trust-check party trick
+
+
 ## 2026-07-15 03:49:25 — Codex
 Decision recorded: close the task as complete because the accepted package is installed, the Work-capable payload is present, the trusted CLI blocker is repaired, and the running application has live process and HTTP receipts.
 

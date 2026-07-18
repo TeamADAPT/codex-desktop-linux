@@ -1,5 +1,33 @@
 # Operations History
 
+## 2026-07-18 16:23:44 — Weld
+Fixed Codex Desktop intermittent launch (CLI trust hard-fail on group-writable PATH hit) and model picker visibility (ui-tweaks showModelsByDefault).
+
+Runtime:
+- Stripped group/world-write from ~/.local/node_modules/@openai tree (umask 0002 npm install).
+- Installed package: codex-desktop 2026.07.18.232100 (PACKAGE_WITH_UPDATER=0).
+- Live unit: codex-desktop-live.service active; webview HTTP 200 14154 bytes; cli_launch_path_verified; model/list responding.
+
+Code:
+- launcher/start.sh.template: list_codex_cli_candidates + find_trusted_codex_cli; auto-discovered CLI trust failure falls through to next trusted candidate; explicit CODEX_CLI_PATH still hard-fails.
+- tests/scripts_smoke.sh: extract new finder helpers.
+- Local gitignored features.json: enabled ui-tweaks (modelPicker.showModelsByDefault).
+
+Files touched:
+- launcher/start.sh.template
+- tests/scripts_smoke.sh
+- plans/fix-launch-and-model-picker.md
+- linux-features/features.json (gitignored)
+- codex-app/ (generated)
+- dist/codex-desktop_2026.07.18.232100_amd64.deb
+- /opt/codex-desktop
+- ops/operations_history.md
+- ops/decisions.log
+- ops/in_progress/fix_codex_dt_launch_and_models/
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:23:44 MST · path order is not destiny
+
+
 ## 2026-07-15 03:49:25 — Codex
 Closed the ChatGPT Work desktop update after live-system verification.
 
