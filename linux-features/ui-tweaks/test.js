@@ -14,6 +14,7 @@ const {
 const {
   ADVANCED_MENU_VIEW_PATTERN,
   DYNAMIC_POWER_EFFORTS_RUNTIME_MARKER,
+  FORCE_ADVANCED_RUNTIME_MARKER,
   GPT_56_ALLOWLIST_MARKER,
   INLINE_MODEL_LIST_RUNTIME_MARKER,
   MODEL_ALLOWLIST_MARKER,
@@ -25,6 +26,8 @@ const {
   applyDynamicSupportedReasoningEffortsPatch,
   applyGpt56AllowlistPatch,
   applyInlineModelListPatch,
+  applyMenuForceAdvancedMenuViewPatch,
+  applyParentForceAdvancedMenuViewPatch,
 } = require("./patches/model-picker-model-list.js");
 const {
   DEFAULT_PROJECT_NAME_STYLE,
@@ -164,8 +167,10 @@ test("ui-tweaks is discoverable and disabled until listed in features.json", () 
       [
         ["feature:ui-tweaks:sidebar-project-name-style", "webview-asset", "optional"],
         ["feature:ui-tweaks:model-picker-default-advanced-view", "webview-asset", "optional"],
+        ["feature:ui-tweaks:model-picker-force-advanced-parent", "webview-asset", "optional"],
         ["feature:ui-tweaks:model-picker-include-gpt-5-6", "webview-asset", "optional"],
         ["feature:ui-tweaks:model-picker-inline-model-list", "webview-asset", "optional"],
+        ["feature:ui-tweaks:model-picker-force-advanced-menu", "webview-asset", "optional"],
         [
           "feature:ui-tweaks:model-picker-dynamic-supported-reasoning-efforts",
           "webview-asset",

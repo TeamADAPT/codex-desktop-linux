@@ -19,6 +19,22 @@ const DYNAMIC_POWER_EFFORTS_RUNTIME_MARKER =
 const MODEL_ALLOWLIST_MARKER = "l?t.has(n.model):!n.hidden";
 const GPT_56_ALLOWLIST_MARKER =
   "l?t.has(n.model)||n.model.startsWith(`gpt-5.6-`)&&!n.hidden:!n.hidden";
+const FORCE_ADVANCED_RUNTIME_MARKER = "codexLinuxForceAdvancedMenuView";
+// Parent composer picker: only force advanced when power path is active and the
+// current selection is missing from the compact Power slider. That leaves users
+// stuck on compact with no way to "expand" into Model/Effort/Speed. Always use
+// advanced for the work-mode power path so the detailed list is reachable.
+const PARENT_FORCE_ADVANCED_PATTERN =
+  /([A-Za-z_$][\w$]*)=([A-Za-z_$][\w$]*)&&([A-Za-z_$][\w$]*)==null\?`advanced`:([A-Za-z_$][\w$]*)(?=[,;])/;
+const PARENT_FORCE_ADVANCED_PATCHED = new RegExp(
+  `[A-Za-z_$][\\w$]*=[A-Za-z_$][\\w$]*\\?\`advanced\`/\\*${FORCE_ADVANCED_RUNTIME_MARKER}\\*/[A-Za-z_$][\\w$]*(?=[,;])`,
+);
+// Menu bundle: same stuck-compact gate when the selected power index is null.
+const MENU_FORCE_ADVANCED_PATTERN =
+  /([A-Za-z_$][\w$]*)=([A-Za-z_$][\w$]*)&&([A-Za-z_$][\w$]*)==null\?`advanced`:([A-Za-z_$][\w$]*)(?=[,;])/;
+const MENU_FORCE_ADVANCED_PATCHED = new RegExp(
+  `[A-Za-z_$][\\w$]*=[A-Za-z_$][\\w$]*\\?\`advanced\`/\\*${FORCE_ADVANCED_RUNTIME_MARKER}\\*/[A-Za-z_$][\\w$]*(?=[,;])`,
+);
 const JS_IDENT = "[A-Za-z_$][\\w$]*";
 
 function warn(message) {
@@ -142,6 +158,49 @@ function applyGpt56AllowlistPatch(source, context = {}) {
   }
 }
 
+function applyForceAdvancedMenuViewPatch(source, context = {}, { pattern, patchedPattern, label }) {
+  try {
+    if (typeof source !== "string") {
+      warn("Asset source is not a string");
+      return source;
+    }
+    if (!enabled(context) || patchedPattern.test(source)) {
+      return source;
+    }
+    if (!pattern.test(source)) {
+      if (context.warnOnMissingMarkers === true) {
+        warn(`Could not find the ${label} force-advanced menu view marker`);
+      }
+      return source;
+    }
+
+    return source.replace(
+      pattern,
+      (_match, resultVar, powerPathVar, _missingSelectionVar, storedViewVar) =>
+        `${resultVar}=${powerPathVar}?\`advanced\`/*${FORCE_ADVANCED_RUNTIME_MARKER}*/:${storedViewVar}`,
+    );
+  } catch (error) {
+    warn(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+    return source;
+  }
+}
+
+function applyParentForceAdvancedMenuViewPatch(source, context = {}) {
+  return applyForceAdvancedMenuViewPatch(source, context, {
+    pattern: PARENT_FORCE_ADVANCED_PATTERN,
+    patchedPattern: PARENT_FORCE_ADVANCED_PATCHED,
+    label: "parent",
+  });
+}
+
+function applyMenuForceAdvancedMenuViewPatch(source, context = {}) {
+  return applyForceAdvancedMenuViewPatch(source, context, {
+    pattern: MENU_FORCE_ADVANCED_PATTERN,
+    patchedPattern: MENU_FORCE_ADVANCED_PATCHED,
+    label: "menu",
+  });
+}
+
 function findDynamicPowerSelectionsFunction(source) {
   const pattern = new RegExp(
     `function (${JS_IDENT})\\((${JS_IDENT})\\)\\{return \\2\\?\\.flatMap\\(\\(\\{` +
@@ -218,8 +277,11 @@ function applyDynamicSupportedReasoningEffortsPatch(source, context = {}) {
 
 function applyModelPickerModelListPatch(source, context = {}) {
   return applyDynamicSupportedReasoningEffortsPatch(
-    applyInlineModelListPatch(
-      applyGpt56AllowlistPatch(applyDefaultAdvancedViewPatch(source, context), context),
+    applyMenuForceAdvancedMenuViewPatch(
+      applyInlineModelListPatch(
+        applyGpt56AllowlistPatch(applyDefaultAdvancedViewPatch(source, context), context),
+        context,
+      ),
       context,
     ),
     context,
@@ -237,6 +299,20 @@ const descriptors = [
     skipDescription: "ui-tweaks model picker default advanced view patch",
     apply: (source, context = {}) =>
       applyDefaultAdvancedViewPatch(source, { ...context, warnOnMissingMarkers: true }),
+  },
+  {
+    id: "model-picker-force-advanced-parent",
+    phase: "webview-asset",
+    order: 20_794.5,
+    ciPolicy: "optional",
+    pattern: MODEL_PICKER_STATE_ASSET_PATTERN,
+    missingDescription: "composer model picker parent state bundle",
+    skipDescription: "ui-tweaks force-advanced parent menu view patch",
+    apply: (source, context = {}) =>
+      applyParentForceAdvancedMenuViewPatch(source, {
+        ...context,
+        warnOnMissingMarkers: true,
+      }),
   },
   {
     id: "model-picker-include-gpt-5-6",
@@ -261,6 +337,20 @@ const descriptors = [
       applyInlineModelListPatch(source, { ...context, warnOnMissingMarkers: true }),
   },
   {
+    id: "model-picker-force-advanced-menu",
+    phase: "webview-asset",
+    order: 20_796.5,
+    ciPolicy: "optional",
+    pattern: MODEL_PICKER_MENU_ASSET_PATTERN,
+    missingDescription: "composer model picker menu bundle",
+    skipDescription: "ui-tweaks force-advanced menu view patch",
+    apply: (source, context = {}) =>
+      applyMenuForceAdvancedMenuViewPatch(source, {
+        ...context,
+        warnOnMissingMarkers: true,
+      }),
+  },
+  {
     id: "model-picker-dynamic-supported-reasoning-efforts",
     phase: "webview-asset",
     order: 20_797,
@@ -280,6 +370,7 @@ module.exports = {
   ADVANCED_MENU_VIEW_PATTERN,
   DYNAMIC_POWER_EFFORTS_RUNTIME_MARKER,
   EFFORT_TITLE_MARKER,
+  FORCE_ADVANCED_RUNTIME_MARKER,
   GPT_56_ALLOWLIST_MARKER,
   INLINE_MODEL_LIST_RUNTIME_MARKER,
   MODEL_ALLOWLIST_MARKER,
@@ -293,7 +384,9 @@ module.exports = {
   applyDynamicSupportedReasoningEffortsPatch,
   applyGpt56AllowlistPatch,
   applyInlineModelListPatch,
+  applyMenuForceAdvancedMenuViewPatch,
   applyModelPickerModelListPatch,
+  applyParentForceAdvancedMenuViewPatch,
   descriptors,
   findDynamicPowerSelectionsFunction,
   findInlineModelListVariable,

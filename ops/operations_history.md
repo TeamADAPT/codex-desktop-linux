@@ -1,5 +1,23 @@
 # Operations History
 
+## 2026-07-18 16:32:47 — Weld
+Forced model picker advanced/expanded view so Work-mode compact Power slider no longer traps users who cannot expand into Model/Effort/Speed.
+
+Root cause: upstream only auto-advanced when the current selection was missing from powerSelections (`U=H&&B==null?advanced:r`). Compact simple view then required an Advanced toggle that did not surface the full model list reliably.
+
+Fix: ui-tweaks force-advanced parent + menu patches always use advanced when the power path is active. Installed package `2026.07.18.233107`. Live unit active, webview 200.
+
+Files touched:
+- linux-features/ui-tweaks/patches/model-picker-model-list.js
+- linux-features/ui-tweaks/test.js
+- dist/codex-desktop_2026.07.18.233107_amd64.deb
+- /opt/codex-desktop
+- ops/operations_history.md
+- ops/decisions.log
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:32:47 MST · expand or be expanded
+
+
 ## 2026-07-18 16:23:44 — Weld
 Fixed Codex Desktop intermittent launch (CLI trust hard-fail on group-writable PATH hit) and model picker visibility (ui-tweaks showModelsByDefault).
 

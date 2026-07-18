@@ -1,5 +1,17 @@
 # Decisions Log
 
+## 2026-07-18 16:32:47 — Weld
+Decision: force advanced model picker view for Work-mode power path instead of depending on Advanced toggle expand. Compact simple remains available only when power path is inactive.
+
+Files touched:
+- linux-features/ui-tweaks/patches/model-picker-model-list.js
+- linux-features/ui-tweaks/test.js
+- ops/operations_history.md
+- ops/decisions.log
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:32:47 MST · simple is a trap with a nice slider
+
+
 ## 2026-07-18 16:23:44 — Weld
 Decision: treat group-writable first-on-PATH Codex CLI as skippable for auto-discovery, not a hard stop, while preserving hard-fail for explicit CODEX_CLI_PATH pins. Enable local ui-tweaks model picker (not committed features.json) so Sol/Terra/Luna render inline; do not unlock ChatGPT account Statsig rollouts.
 
