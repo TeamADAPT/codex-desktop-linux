@@ -1,5 +1,14 @@
 # Operations History
 
+## 2026-07-18 16:38:32 — Weld
+Bumped Codex Desktop force scale from 1 to 2 after scale-1 made text microscopic on NX (Xft.dpi 384 / GNOME text-scale 2.0).
+
+- `~/.config/codex-desktop/electron-flags.conf`: `--force-device-scale-factor=2`
+- Live: electron has `--force-device-scale-factor=2`, window maximized 3594x1876, webview 200
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:38:32 MST · goldilocks scale, not porridge
+
+
 ## 2026-07-18 16:37:16 — Weld
 Fixed Codex Desktop window unusable / non-expanding UI on NX display.
 
