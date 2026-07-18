@@ -1,5 +1,28 @@
 # Operations History
 
+## 2026-07-18 16:37:16 — Weld
+Fixed Codex Desktop window unusable / non-expanding UI on NX display.
+
+Root cause: session reports `Xft.dpi=384` (scale 4) and GNOME `text-scaling-factor=2.0` on a 3764x2006 NX output. Electron applied 4x device scale; window was 3774x2400 with oversized chrome so buttons and the prompt were off-screen / unreachable.
+
+Fix (user-local, cold start):
+- `~/.config/codex-desktop/electron-flags.conf`: `--force-device-scale-factor=1`, `--ozone-platform=x11`
+- Relaunched `codex-desktop-live.service` with same env
+- Maximized window to work area 3594x1876
+
+Receipts:
+- Process cmdline includes `--force-device-scale-factor=1 --ozone-platform=x11`
+- Window: maximized, Map State IsViewable
+- Webview HTTP 200
+
+Files touched:
+- /home/x/.config/codex-desktop/electron-flags.conf
+- ops/operations_history.md
+- ops/decisions.log
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:37:16 MST · 384 dpi is not a personality trait
+
+
 ## 2026-07-18 16:32:47 — Weld
 Forced model picker advanced/expanded view so Work-mode compact Power slider no longer traps users who cannot expand into Model/Effort/Speed.
 

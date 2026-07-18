@@ -1,5 +1,16 @@
 # Decisions Log
 
+## 2026-07-18 16:37:16 — Weld
+Decision: force Electron device scale factor 1 and X11 ozone for this NX/GNOME session because Xft.dpi 384 double-scales the UI into an unusable non-expanding window. Do not change system-wide Xft.dpi from the app path.
+
+Files touched:
+- /home/x/.config/codex-desktop/electron-flags.conf
+- ops/operations_history.md
+- ops/decisions.log
+
+— Weld · Frontier Systems Agent · 2026-07-18 16:37:16 MST · scale 4 is a cry for help
+
+
 ## 2026-07-18 16:32:47 — Weld
 Decision: force advanced model picker view for Work-mode power path instead of depending on Advanced toggle expand. Compact simple remains available only when power path is inactive.
 
