@@ -1,5 +1,28 @@
 # Decisions Log
 
+## 2026-07-26 07:45:54 — Codex
+
+Decision recorded: reuse the repository's proven upstream-to-origin-to-local
+workflow as a new dated task, while requiring fresh user approval because the
+previous synchronization task is completed and bound to older refs.
+
+Decision recorded: require a normal fast-forward from current
+`origin/main` to freshly fetched `upstream/main`; do not force-push, rebase
+published TeamADAPT history, or discard local work.
+
+Decision recorded: allow only the required planning commit and push; hold all
+synchronization ref movement and source-file changes until the user reviews
+and approves the current section of `plans/sync-upstream-origin-local.md`.
+
+Files touched:
+
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local_20260726/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-18 16:37:16 — Weld
 Decision: force Electron device scale factor 1 and X11 ozone for this NX/GNOME session because Xft.dpi 384 double-scales the UI into an unusable non-expanding window. Do not change system-wide Xft.dpi from the app path.
 

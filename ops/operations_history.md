@@ -1,5 +1,33 @@
 # Operations History
 
+## 2026-07-26 07:45:54 — Codex
+
+Created the current upstream-to-origin-to-local synchronization task and
+approval-gated execution plan after verifying the clean worktree and live
+remote topology.
+
+Actions performed:
+
+- Verified `upstream` is `ilysenko/codex-desktop-linux` and `origin` is the
+  TeamADAPT fork.
+- Read the server refs directly without fetching or changing local refs.
+- Verified `upstream/main` is `8c6a945`, `origin/main` and local `main` are
+  `02c1646`, and `origin/working`, local `working`, and `HEAD` are `1c2d96c`.
+- Added the new task to `ops/to_do/` and refreshed the non-force
+  synchronization plan.
+- Left synchronization refs and source files unchanged pending user approval;
+  the planning record itself will be committed and pushed as required by the
+  repository task protocol.
+
+Files touched:
+
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local_20260726/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-18 16:38:32 — Weld
 Bumped Codex Desktop force scale from 1 to 2 after scale-1 made text microscopic on NX (Xft.dpi 384 / GNOME text-scale 2.0).
 

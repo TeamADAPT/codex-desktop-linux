@@ -1,5 +1,77 @@
 # Upstream To Origin To Local Sync Plan
 
+## 2026-07-26 07:45:54 — Codex
+
+Objective: synchronize the current upstream `main` through the TeamADAPT
+`origin` fork and into this checkout's `working` branch without rewriting
+published history or discarding TeamADAPT work.
+
+Approval status: pending user review and approval. Only this planning and ops
+record may be committed and pushed under the required task protocol; no
+synchronization ref movement or source-file changes are authorized until
+approval is recorded.
+
+Verified read-only starting state:
+
+- The worktree is clean on local `working`.
+- Direct server read: `upstream/main` is
+  `8c6a945d9b5acbabd0b34f28809a066b179c0fad`.
+- Direct server read: `origin/main` is
+  `02c16466691c6082113065bc621ce32d4c105c9d`.
+- Direct server read: `origin/working`, local `working`, and `HEAD` are
+  `1c2d96ce2be0e1ab482daeedde27a6c217d7bf88`.
+- Local `main` is `02c16466691c6082113065bc621ce32d4c105c9d`.
+- The cached `upstream/main` ref is stale, so ancestry and the exact incoming
+  diff must be established from a fresh fetch after approval.
+
+Execution:
+
+1. Commit and push this planning record, then obtain explicit user approval
+   for this dated plan before changing synchronization refs or source files.
+2. Move `ops/to_do/sync_upstream_origin_local_20260726/` to
+   `ops/in_progress/`, record the approval, commit, and push the task start.
+3. Fetch and prune `upstream` and `origin`.
+4. Reconfirm a clean worktree, unchanged starting refs, and require
+   `origin/main` to be an ancestor of `upstream/main`. Stop rather than
+   force-push if the histories diverge or either server ref moves during the
+   operation.
+5. Push the freshly fetched `upstream/main` commit to `origin/main` as a
+   normal fast-forward and verify both server-side refs directly.
+6. Fast-forward local `main` to the synchronized `origin/main`.
+7. Merge synchronized `origin/main` into `working` without rewriting the
+   published `origin/working` history. Resolve any conflicts in favor of the
+   current repository architecture while retaining TeamADAPT changes.
+8. Validate the resulting graph and run the relevant repository checks chosen
+   from the actual incoming diff. Use live GitHub remote reads as the
+   synchronization receipts and prioritize live system integration checks if
+   the merged paths affect runnable behavior.
+9. Push `working`, verify local and remote commit IDs, write the completion
+   report, move the task to `ops/completed/`, commit, and push the closeout.
+
+Stop conditions:
+
+- The worktree or tracked branches move unexpectedly.
+- `origin/main` is not an ancestor of freshly fetched `upstream/main`.
+- A normal non-force push cannot update `origin/main`.
+- A conflict cannot be resolved directly from repository sources, plans,
+  knowledge, and history without changing intended TeamADAPT behavior.
+- Required validation exposes a failure caused by the integration.
+
+Success receipts:
+
+- Remote `upstream/main`, remote `origin/main`, and local `main` resolve to the
+  same commit.
+- `working` contains both its recorded TeamADAPT starting tip and the
+  synchronized upstream tip.
+- Local `working` and remote `origin/working` resolve to the same commit.
+- The worktree is clean.
+- Relevant validation passes, or any failure is reported immediately with its
+  command and evidence.
+
+Status: awaiting user approval.
+
+**— Codex**
+
 ## 2026-07-15 02:22:59 — Codex
 
 Objective: synchronize the newest upstream `main` through the TeamADAPT
