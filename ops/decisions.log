@@ -1,5 +1,24 @@
 # Decisions Log
 
+## 2026-07-26 07:55:51 — Codex
+
+Decision recorded: update TeamADAPT `origin/main` with the exact freshly
+fetched `upstream/main` commit after the immediate live-ref and ancestry
+rechecks passed; use a normal push and no force option.
+
+Decision recorded: treat the direct post-push equality of both server-side
+`main` refs as the live remote receipt for the fork mainline update.
+
+Files touched:
+
+- `.git/FETCH_HEAD`
+- `.git/refs/remotes/origin/main`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:55:15 — Codex
 
 Decision recorded: proceed with a normal fast-forward of `origin/main`

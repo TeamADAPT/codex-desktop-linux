@@ -68,6 +68,10 @@ Success receipts:
 
 Execution progress:
 
+- 2026-07-26 07:55:51 MST: re-read both server refs and revalidated ancestry,
+  then fast-forwarded `origin/main` from `02c1646` to `8c6a945` with a normal
+  push. Refetched `origin/main`; fetched refs and direct server reads now
+  confirm `upstream/main` and `origin/main` match exactly at `8c6a945`.
 - 2026-07-26 07:55:15 MST: fetched and pruned both remotes. Fresh refs show
   `origin/main` is an ancestor of `upstream/main` with divergence `0 180`;
   the required no-force gate passed. The incoming mainline delta changes 178
