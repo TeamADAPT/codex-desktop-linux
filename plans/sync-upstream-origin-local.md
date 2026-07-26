@@ -6,10 +6,8 @@ Objective: synchronize the current upstream `main` through the TeamADAPT
 `origin` fork and into this checkout's `working` branch without rewriting
 published history or discarding TeamADAPT work.
 
-Approval status: pending user review and approval. Only this planning and ops
-record may be committed and pushed under the required task protocol; no
-synchronization ref movement or source-file changes are authorized until
-approval is recorded.
+Approval status: approved explicitly by the user on 2026-07-26 at 07:54:30
+MST. Execution is authorized under this dated plan.
 
 Verified read-only starting state:
 
@@ -68,7 +66,15 @@ Success receipts:
 - Relevant validation passes, or any failure is reported immediately with its
   command and evidence.
 
-Status: awaiting user approval.
+Execution progress:
+
+- 2026-07-26 07:54:30 MST: received explicit user approval, moved the queued
+  task into `ops/in_progress/`, and started execution. Direct server reads
+  immediately before task start confirmed `upstream/main` remained `8c6a945`,
+  `origin/main` remained `02c1646`, and `origin/working` matched the planning
+  commit `01a6faf`.
+
+Status: approved and in progress.
 
 **— Codex**
 

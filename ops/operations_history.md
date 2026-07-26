@@ -1,5 +1,30 @@
 # Operations History
 
+## 2026-07-26 07:54:30 — Codex
+
+Started the approved upstream-to-origin-to-local synchronization task.
+
+Actions performed:
+
+- Received explicit user approval for the current section of
+  `plans/sync-upstream-origin-local.md`.
+- Reconfirmed the worktree is clean and local `working` matches
+  `origin/working` at the planning commit `01a6faf`.
+- Reconfirmed through direct server reads that `upstream/main` remains
+  `8c6a945`, `origin/main` remains `02c1646`, and `origin/working` remains
+  `01a6faf`.
+- Moved the task from `ops/to_do/` to `ops/in_progress/`.
+
+Files touched:
+
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local_20260726/task.md`
+- `ops/in_progress/sync_upstream_origin_local_20260726/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:45:54 — Codex
 
 Created the current upstream-to-origin-to-local synchronization task and

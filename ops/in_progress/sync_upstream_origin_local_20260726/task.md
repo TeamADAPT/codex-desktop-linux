@@ -22,6 +22,8 @@ Expected receipts:
 - Updated `working` containing both upstream and TeamADAPT history.
 - Clean local worktree with local `working` matching `origin/working`.
 
-Status: queued in `ops/to_do/` pending explicit user approval.
+Approval: explicitly granted by the user on 2026-07-26 at 07:54:30 MST.
+
+Status: active in `ops/in_progress/`.
 
 **— Codex**

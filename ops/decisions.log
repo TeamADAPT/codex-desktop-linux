@@ -1,5 +1,25 @@
 # Decisions Log
 
+## 2026-07-26 07:54:30 — Codex
+
+Decision recorded: begin synchronization because the user explicitly approved
+the dated plan, the live remote refs remain at their planned values, and the
+tracked worktree remains clean.
+
+Decision recorded: preserve the plan's ancestry and remote-movement gates
+through the fetch and push sequence; approval does not authorize a force push
+or history rewrite.
+
+Files touched:
+
+- `plans/sync-upstream-origin-local.md`
+- `ops/to_do/sync_upstream_origin_local_20260726/task.md`
+- `ops/in_progress/sync_upstream_origin_local_20260726/task.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:45:54 — Codex
 
 Decision recorded: reuse the repository's proven upstream-to-origin-to-local
