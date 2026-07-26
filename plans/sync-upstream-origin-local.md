@@ -68,6 +68,14 @@ Success receipts:
 
 Execution progress:
 
+- 2026-07-26 08:16:22 MST: completed native validation and live Git graph
+  verification. Shell syntax, 54 focused UI tests, 53 watchdog tests, Rust
+  formatting/clippy/check, and 764 Rust tests passed. The full Node lane and
+  script-smoke lane exposed exact-upstream timer/backoff failures and a
+  host-specific `/usr/bin/codex` fixture assumption; complete evidence is in
+  the active task's `validation_report.md`. At the user's request, terminated
+  the old installed app process tree; GNOME Shell later launched it again, so
+  it is explicitly excluded as merged-source validation.
 - 2026-07-26 07:59:23 MST: merged synchronized `main` into `working` as
   `598cb38` with parents `2e3d8a4` and `8c6a945`, then pushed the merge to
   `origin/working`. Git reported four expected content conflicts. Resolved

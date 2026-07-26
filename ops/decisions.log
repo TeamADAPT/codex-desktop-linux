@@ -1,5 +1,38 @@
 # Decisions Log
 
+## 2026-07-26 08:16:22 — Codex
+
+Decision recorded: classify the directory-watch timer/backoff failures as
+reported current-upstream test defects because the implementation and tests are
+byte-identical to `upstream/main`, the feature is optional and disabled by
+default, and no TeamADAPT conflict resolution touched it.
+
+Decision recorded: classify the script-smoke Linuxbrew assertion as a
+host-fixture failure because the current upstream test hard-codes
+`/usr/bin:/bin` as clean while this host intentionally has `/usr/bin/codex`;
+do not hide or patch that upstream assumption during a synchronization task.
+
+Decision recorded: satisfy the explicit process-termination request with an
+exact `/opt/codex-desktop` match, graceful termination first, and bounded hard
+termination only for survivors. Do not disable GNOME, mutate the installed
+package, or remove runtime files because the user requested `pkill`, not
+persistent launch suppression.
+
+Decision recorded: accept the synchronization result with disclosed upstream
+validation failures because the live ref/ancestry receipts pass, merge-focused
+and native Rust gates pass, and the failures are not caused by the integration.
+
+Files touched:
+
+- `/proc/<terminated-codex-pids>/` process state
+- `app-codex-desktop-1399804.scope` transient runtime state
+- `ops/in_progress/sync_upstream_origin_local_20260726/validation_report.md`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:59:23 — Codex
 
 Decision recorded: resolve all four changed-both paths to the complete current

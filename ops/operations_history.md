@@ -1,5 +1,40 @@
 # Operations History
 
+## 2026-07-26 08:16:22 — Codex
+
+Completed native validation, verified the live synchronization graph, and
+honored the user's request to terminate the old installed app.
+
+Actions performed:
+
+- Verified direct GitHub refs: both remotes' `main` and local `main` resolve
+  to `8c6a945`; local and remote `working` resolved to `37dd180` before this
+  validation report commit.
+- Verified `working` contains both the pre-merge TeamADAPT tip and synchronized
+  upstream mainline.
+- Passed 25 shell syntax checks, 54 focused UI Tweaks tests, 53 Python watchdog
+  tests, Rust formatting/clippy/check, and 764 Rust tests.
+- Ran the full Node and script-smoke lanes and recorded their current-upstream
+  failures without modifying unrelated upstream source.
+- Sent `SIGTERM` to 19 exact `/opt/codex-desktop` processes at the user's
+  request and verified the webview port stopped.
+- Diagnosed a later replacement launch as a direct GNOME Shell session child,
+  not an enabled Codex systemd user service, then stopped its transient scope
+  and process tree. Did not disable services or alter package-managed files.
+- Recorded that the user session subsequently launched the old installed app
+  again; it is not represented as validation of the merged source.
+
+Files touched:
+
+- `/proc/<terminated-codex-pids>/` process state
+- `app-codex-desktop-1399804.scope` transient runtime state
+- `ops/in_progress/sync_upstream_origin_local_20260726/validation_report.md`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:59:23 — Codex
 
 Merged synchronized upstream mainline into TeamADAPT `working` and pushed the
