@@ -1,5 +1,32 @@
 # Decisions Log
 
+## 2026-07-26 08:17:41 — Codex
+
+Decision recorded: close the synchronization task because the requested live
+ref chain and merge ancestry are correct, the merge-specific and native Rust
+gates pass, and all non-green upstream test evidence is documented rather than
+hidden.
+
+Decision recorded: leave the local-only `dev/mobile-gpu-route` branch
+unchanged because the approved current plan updates local `main` and checked-out
+`working`; expanding to unrelated local branches is unnecessary.
+
+Decision recorded: do not claim the currently installed app validates the
+merged source because this task did not rebuild or install it.
+
+Files touched:
+
+- `ops/in_progress/sync_upstream_origin_local_20260726/`
+- `ops/completed/sync_upstream_origin_local_20260726/task.md`
+- `ops/completed/sync_upstream_origin_local_20260726/merge_files.txt`
+- `ops/completed/sync_upstream_origin_local_20260726/validation_report.md`
+- `ops/completed/sync_upstream_origin_local_20260726/completion_report.md`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 08:16:22 — Codex
 
 Decision recorded: classify the directory-watch timer/backoff failures as
