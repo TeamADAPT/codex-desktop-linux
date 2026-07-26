@@ -11,6 +11,7 @@ codex-app.backup-*/
 codex-*-app/
 codex-app-next/
 bin/codex-*
+temp_auto_push.bat
 target/
 dist/
 dist-next/
@@ -24,3 +25,5 @@ linux-features/local/
 # graphify
 graphify-out/
 .graphify_*
+.gitignore
+branch_structure.json
