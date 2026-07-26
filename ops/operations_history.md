@@ -1,5 +1,35 @@
 # Operations History
 
+## 2026-07-26 07:55:15 — Codex
+
+Fetched both remotes and passed the required non-force ancestry gate for the
+mainline synchronization.
+
+Actions performed:
+
+- Fetched and pruned `upstream` and `origin`.
+- Confirmed freshly fetched `upstream/main` is `8c6a945` and `origin/main` is
+  `02c1646`.
+- Verified `origin/main` is an ancestor of `upstream/main`; the divergence is
+  zero origin-only commits and 180 upstream-only commits.
+- Verified direct server reads match the fetched mainline refs and
+  `origin/working` matches the approved task-start commit `78211b3`.
+- Inventoried the incoming delta: 178 changed paths, 28,160 insertions, and
+  5,613 deletions.
+- Left `origin/main`, local `main`, and source files unchanged during the
+  gate.
+
+Files touched:
+
+- `.git/FETCH_HEAD`
+- `.git/objects/`
+- `.git/refs/remotes/upstream/`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:54:30 — Codex
 
 Started the approved upstream-to-origin-to-local synchronization task.

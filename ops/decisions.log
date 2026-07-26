@@ -1,5 +1,27 @@
 # Decisions Log
 
+## 2026-07-26 07:55:15 — Codex
+
+Decision recorded: proceed with a normal fast-forward of `origin/main`
+because the freshly fetched graph proves current `origin/main` is an ancestor
+of current `upstream/main`, with 180 upstream-only commits and no origin-only
+mainline commits.
+
+Decision recorded: use `8c6a945d9b5acbabd0b34f28809a066b179c0fad`
+as the synchronization source only while direct server reads continue to match
+the fetched refs; stop if either mainline ref moves before the push.
+
+Files touched:
+
+- `.git/FETCH_HEAD`
+- `.git/objects/`
+- `.git/refs/remotes/upstream/`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:54:30 — Codex
 
 Decision recorded: begin synchronization because the user explicitly approved
