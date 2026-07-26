@@ -1,5 +1,30 @@
 # Operations History
 
+## 2026-07-26 08:17:41 — Codex
+
+Closed the upstream-to-origin-to-local synchronization task.
+
+Actions performed:
+
+- Wrote the completion report with live ref, merge, validation, and installed
+  application scope receipts.
+- Moved the task from `ops/in_progress/` to `ops/completed/`.
+- Confirmed the requested Git synchronization is complete while preserving
+  the disclosed current-upstream test failures for follow-up.
+
+Files touched:
+
+- `ops/in_progress/sync_upstream_origin_local_20260726/`
+- `ops/completed/sync_upstream_origin_local_20260726/task.md`
+- `ops/completed/sync_upstream_origin_local_20260726/merge_files.txt`
+- `ops/completed/sync_upstream_origin_local_20260726/validation_report.md`
+- `ops/completed/sync_upstream_origin_local_20260726/completion_report.md`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 08:16:22 — Codex
 
 Completed native validation, verified the live synchronization graph, and

@@ -24,6 +24,7 @@ Expected receipts:
 
 Approval: explicitly granted by the user on 2026-07-26 at 07:54:30 MST.
 
-Status: active in `ops/in_progress/`.
+Status: completed and archived in `ops/completed/` on 2026-07-26 at
+08:17:41 MST.
 
 **— Codex**
