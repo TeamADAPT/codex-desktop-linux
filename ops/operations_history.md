@@ -1,5 +1,29 @@
 # Operations History
 
+## 2026-07-26 07:56:19 — Codex
+
+Fast-forwarded the local mainline to the synchronized TeamADAPT fork mainline.
+
+Actions performed:
+
+- Switched from clean `working` to local `main`.
+- Fast-forwarded local `main` from `02c1646` to tracked `origin/main` at
+  `8c6a945`; no merge commit, rebase, reset, or force option was used.
+- Verified local `main`, fetched `origin/main`, and fetched `upstream/main`
+  resolve to the same commit.
+- Returned to `working` and verified it still matched `origin/working` at
+  `63f65bb` with a clean tracked worktree.
+
+Files touched:
+
+- `.git/HEAD`
+- `.git/refs/heads/main`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:55:51 — Codex
 
 Fast-forwarded the TeamADAPT fork's remote mainline to the current upstream

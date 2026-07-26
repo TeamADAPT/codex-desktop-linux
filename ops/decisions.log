@@ -1,5 +1,21 @@
 # Decisions Log
 
+## 2026-07-26 07:56:19 — Codex
+
+Decision recorded: update local `main` with a strict fast-forward from its
+tracked synchronized `origin/main`, then return to `working` before integrating
+TeamADAPT history.
+
+Files touched:
+
+- `.git/HEAD`
+- `.git/refs/heads/main`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:55:51 — Codex
 
 Decision recorded: update TeamADAPT `origin/main` with the exact freshly
