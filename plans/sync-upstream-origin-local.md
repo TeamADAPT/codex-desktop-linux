@@ -68,6 +68,15 @@ Success receipts:
 
 Execution progress:
 
+- 2026-07-26 07:59:23 MST: merged synchronized `main` into `working` as
+  `598cb38` with parents `2e3d8a4` and `8c6a945`, then pushed the merge to
+  `origin/working`. Git reported four expected content conflicts. Resolved
+  `launcher/start.sh.template`, the UI Tweaks model-picker implementation and
+  test, and `tests/scripts_smoke.sh` byte-for-byte to current upstream because
+  upstream replaced the old CLI trust and DMG model-picker contracts while
+  preserving their user-facing intent. Pre-commit syntax and conflict-marker
+  checks passed, and all 54 focused UI Tweaks tests passed. The merge changes
+  178 paths relative to the TeamADAPT first parent.
 - 2026-07-26 07:56:19 MST: fast-forwarded local `main` from `02c1646` to
   tracked `origin/main` at `8c6a945`, then returned to the unchanged `working`
   branch. Local `main`, `origin/main`, and `upstream/main` now resolve to the

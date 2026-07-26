@@ -1,5 +1,38 @@
 # Decisions Log
 
+## 2026-07-26 07:59:23 — Codex
+
+Decision recorded: resolve all four changed-both paths to the complete current
+upstream blobs rather than combining conflict hunks, because marker-level
+resolution leaves obsolete TeamADAPT functions and descriptors attached to
+removed upstream contracts.
+
+Decision recorded: remove the local CLI trust-fallthrough workaround because
+current upstream deliberately canonicalizes and executable-checks CLI paths
+while supporting the user-local channels that previously triggered the
+workaround.
+
+Decision recorded: remove the local GPT-5.6 allowlist and force-advanced
+model-picker compatibility patches because current upstream targets the single
+current `app-initial-*.js`, defaults the picker to advanced, renders model rows
+inline, and derives Power efforts dynamically. Retaining old markers would
+violate the latest-DMG-only maintainer rule.
+
+Files touched:
+
+- `launcher/start.sh.template`
+- `linux-features/ui-tweaks/patches/model-picker-model-list.js`
+- `linux-features/ui-tweaks/test.js`
+- `tests/scripts_smoke.sh`
+- All other integrated paths listed in
+  `ops/in_progress/sync_upstream_origin_local_20260726/merge_files.txt`
+- `ops/in_progress/sync_upstream_origin_local_20260726/merge_files.txt`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:56:19 — Codex
 
 Decision recorded: update local `main` with a strict fast-forward from its

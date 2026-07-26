@@ -1,5 +1,39 @@
 # Operations History
 
+## 2026-07-26 07:59:23 — Codex
+
+Merged synchronized upstream mainline into TeamADAPT `working` and pushed the
+integration commit.
+
+Actions performed:
+
+- Merged local synchronized `main` into `working` without rebasing or
+  rewriting the published TeamADAPT first-parent history.
+- Git reported four content conflicts:
+  `launcher/start.sh.template`,
+  `linux-features/ui-tweaks/patches/model-picker-model-list.js`,
+  `linux-features/ui-tweaks/test.js`, and `tests/scripts_smoke.sh`.
+- Resolved all four files byte-for-byte to their current upstream blobs because
+  upstream replaced the old CLI trust and DMG model-picker shapes and now
+  implements the retained launch and expanded-model-picker intent directly.
+- Verified no conflict markers or removed compatibility identifiers remained,
+  both shell files passed syntax checks, the model-picker implementation
+  passed Node syntax validation, and all 54 focused UI Tweaks tests passed.
+- Created merge commit `598cb38191d24b68c8cbacae6396cb1503d45de3`
+  with TeamADAPT parent `2e3d8a4` and upstream parent `8c6a945`.
+- Pushed the merge commit to `origin/working`.
+
+Files touched:
+
+- All 178 integrated source paths listed in
+  `ops/in_progress/sync_upstream_origin_local_20260726/merge_files.txt`
+- `ops/in_progress/sync_upstream_origin_local_20260726/merge_files.txt`
+- `plans/sync-upstream-origin-local.md`
+- `ops/operations_history.md`
+- `ops/decisions.log`
+
+**— Codex**
+
 ## 2026-07-26 07:56:19 — Codex
 
 Fast-forwarded the local mainline to the synchronized TeamADAPT fork mainline.
