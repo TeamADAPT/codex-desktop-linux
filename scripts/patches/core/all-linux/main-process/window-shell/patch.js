@@ -5,7 +5,6 @@ const {
   mainBundlePatch,
 } = require("../../../../descriptor.js");
 const {
-  applyLinuxAboutDialogPatch,
   applyLinuxAppReloadShortcutsPatch,
   applyLinuxApplicationMenuPatch,
   applyLinuxWindowOptionsPatch,
@@ -30,7 +29,9 @@ const {
   applyLinuxTrayPatch,
   applyLinuxSingleInstancePatch,
 } = require("../../../../impl/main-process/tray.js");
-const { applyLinuxAvatarOverlayMousePassthroughPatch } = require("../../../../impl/avatar-overlay.js");
+const {
+  applyLinuxAvatarOverlayMousePassthroughPatch,
+} = require("../../../../impl/avatar-overlay.js");
 
 module.exports = [
   extractedAppPatch({
@@ -48,13 +49,6 @@ module.exports = [
       }
       return "already-applied";
     },
-  }),
-  mainBundlePatch({
-    id: "linux-about-dialog",
-    phase: "main-bundle",
-    order: 55,
-    ciPolicy: "optional",
-    apply: (source, context) => applyLinuxAboutDialogPatch(source, context.iconPathExpression),
   }),
   mainBundlePatch({
     id: "linux-window-options",
